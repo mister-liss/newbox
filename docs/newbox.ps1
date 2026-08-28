@@ -80,10 +80,13 @@ Remove-Item $geom -Force
 Write-Output ''
 Write-Output 'Done. Open gvim.'
 
-$gluc = @(
-    (Join-Path $PSScriptRoot 'gluc\windows\setup.ps1'),
-    (Join-Path $PSScriptRoot '..\gluc\windows\setup.ps1')
-) | Where-Object { $_ -and (Test-Path $_) } | Select-Object -First 1
+$gluc = $null
+if ($PSScriptRoot) {
+    $gluc = @(
+        (Join-Path $PSScriptRoot 'gluc\windows\setup.ps1'),
+        (Join-Path $PSScriptRoot '..\gluc\windows\setup.ps1')
+    ) | Where-Object { Test-Path $_ } | Select-Object -First 1
+}
 
 if ($gluc) {
     & $gluc -Source $Source
