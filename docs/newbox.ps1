@@ -11,7 +11,7 @@ if (-not $elevated) {
     Write-Host 'AutoHotkey send input while an elevated window has focus.'
     Write-Host ''
     Write-Host 'Start PowerShell as administrator, then run:'
-    Write-Host ('  curl.exe -fsSL ' + $Source + '/newbox.ps1 | iex')
+    Write-Host ('  irm ' + $Source + '/newbox.ps1 | iex')
     exit 1
 }
 $FontRelease = 'https://github.com/intel/intel-one-mono/releases/download/V1.4.0/ttf.zip'
