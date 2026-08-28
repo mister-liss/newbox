@@ -57,7 +57,44 @@ Stop-ScheduledTask -TaskName $TaskName -EA SilentlyContinue
 Start-ScheduledTask -TaskName $TaskName
 Write-Output "started $TaskName"
 
-$ProgId = 'gluc.gvim'
+Add-Type -Name Ind -Namespace Win32 -MemberDefinition @'
+[DllImport("shlwapi.dll", CharSet = CharSet.Unicode)]
+public static extern int SHLoadIndirectString(string src, System.Text.StringBuilder buf, int cch, IntPtr r);
+'@
+
+function Get-DefaultAppExe($id) {
+    foreach ($root in 'HKCU:\Software\Classes', 'HKLM:\SOFTWARE\Classes') {
+        $c = (Get-ItemProperty -Path (Join-Path $root "$id\shell\open\command") -EA SilentlyContinue).'(default)'
+        if ($c) {
+            if ($c -match '^"([^"]+)"') { return $Matches[1] }
+            return ($c -split ' ')[0]
+        }
+    }
+    return $null
+}
+
+function Get-DefaultAppName($id) {
+    foreach ($root in 'HKCU:\Software\Classes', 'HKLM:\SOFTWARE\Classes') {
+        $a = Get-ItemProperty -Path (Join-Path $root "$id\Application") -EA SilentlyContinue
+        if ($a -and $a.ApplicationName) {
+            $n = $a.ApplicationName
+            if ($n -like '@*') {
+                $sb = New-Object System.Text.StringBuilder 1024
+                if ([Win32.Ind]::SHLoadIndirectString($n, $sb, $sb.Capacity, [IntPtr]::Zero) -eq 0) { return $sb.ToString() }
+            } else { return $n }
+        }
+        $c = (Get-ItemProperty -Path (Join-Path $root "$id\shell\open\command") -EA SilentlyContinue).'(default)'
+        if ($c) {
+            $exe = if ($c -match '^"([^"]+)"') { $Matches[1] } else { ($c -split ' ')[0] }
+            $d = (Get-Item $exe -EA SilentlyContinue).VersionInfo.FileDescription
+            if ($d) { return $d }
+            if ($exe) { return (Split-Path $exe -Leaf) }
+        }
+    }
+    return $id
+}
+
+$ProgId = 'gluc.gvim' 
 $Extensions = @(
     '.txt','.log','.md','.markdown','.ini','.cfg','.conf','.yml','.yaml','.toml',
     '.json','.xml','.csv','.tsv','.sql','.vim','.lua',
@@ -92,7 +129,12 @@ $blocked = @()
 foreach ($ext in $Extensions) {
     $uc = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\FileExts\$ext\UserChoice"
     $held = (Get-ItemProperty -Path $uc -Name ProgId -EA SilentlyContinue).ProgId
-    if ($held -and $held -ne $ProgId) { $blocked += "$ext -> $held" }
+    if ($held -and $held -ne $ProgId) {
+        $exe = Get-DefaultAppExe $held
+        if (-not ($exe -and $exe -ieq $gvim)) {
+            $blocked += ('{0,-11} {1}' -f $ext, (Get-DefaultAppName $held))
+        }
+    }
 }
 
 Write-Output "associated $($Extensions.Count) extensions with gvim"
