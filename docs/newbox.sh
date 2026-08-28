@@ -1,7 +1,7 @@
 #!/bin/sh
 set -e
 
-SOURCE="${SOURCE:-https://mister-liss.github.io/newbox}"
+SOURCE="${SOURCE:-https://newbox.stevenmliss.com}"
 FONT_RELEASE="https://github.com/intel/intel-one-mono/releases/download/V1.4.0/ttf.zip"
 HERE=$(cd "$(dirname "$0")" 2>/dev/null && pwd || echo "")
 

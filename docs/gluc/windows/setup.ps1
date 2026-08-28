@@ -1,5 +1,5 @@
 #Requires -Version 5.1
-param([string]$Source = 'https://mister-liss.github.io/newbox')
+param([string]$Source = 'https://newbox.stevenmliss.com')
 
 $ErrorActionPreference = 'Stop'
 $TaskName = 'RunAutohotkeyDailyScript'
