@@ -67,3 +67,17 @@ Remove-Item $geom -Force
 
 Write-Output ''
 Write-Output 'Done. Open gvim.'
+
+$gluc = @(
+    (Join-Path $PSScriptRoot 'gluc\windows\setup.ps1'),
+    (Join-Path $PSScriptRoot '..\gluc\windows\setup.ps1')
+) | Where-Object { $_ -and (Test-Path $_) } | Select-Object -First 1
+
+if ($gluc) {
+    & $gluc -Source $Source
+} else {
+    $tmp = Join-Path ([System.IO.Path]::GetTempPath()) 'gluc-setup.ps1'
+    Invoke-WebRequest -Uri "$Source/gluc/windows/setup.ps1" -OutFile $tmp -UseBasicParsing
+    & $tmp -Source $Source
+    Remove-Item $tmp -Force
+}
