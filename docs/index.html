@@ -10,27 +10,41 @@
   html { background: var(--bg); }
   body { color: var(--fg); font: 16px/1.6 system-ui, sans-serif;
          max-width: 46rem; margin: 0 auto; padding: 3rem 1.5rem; }
-  h1 { font-size: 1.5rem; margin: 0 0 .25rem; }
-  p.sub { color: var(--mut); margin: 0 0 2.5rem; }
+  h1 { font-size: 1.5rem; margin: 0 0 2rem; }
   h2 { font-size: .8rem; text-transform: uppercase; letter-spacing: .08em;
        color: var(--mut); margin: 2rem 0 .5rem; font-weight: 600; }
+  .row { display: flex; gap: .5rem; align-items: stretch; }
   pre { background: var(--code); border: 1px solid var(--line); border-radius: 6px;
-        padding: .9rem 1rem; overflow-x: auto; font-size: .875rem; margin: 0; }
+        padding: .9rem 1rem; overflow-x: auto; font-size: .875rem; margin: 0; flex: 1; }
   code { font-family: ui-monospace, Consolas, monospace; }
-  .note { color: var(--mut); font-size: .875rem; margin: .5rem 0 0; }
-  footer { color: var(--mut); font-size: .8rem; margin-top: 3rem;
-           border-top: 1px solid var(--line); padding-top: 1rem; }
+  button { background: var(--code); color: var(--fg); border: 1px solid var(--line);
+           border-radius: 6px; padding: 0 .9rem; font: inherit; font-size: .8rem;
+           cursor: pointer; white-space: nowrap; }
+  button:hover { border-color: var(--mut); }
 </style>
 
 <h1>newbox</h1>
-<p class="sub">Editor setup for a machine you just sat down at: gvim, Intel One Mono, the vimrc, and a window sized to fit comfortably.</p>
 
 <h2>Windows</h2>
-<pre><code>curl.exe -fsSL https://newbox.stevenmliss.com/newbox.ps1 | iex</code></pre>
-<p class="note">Run it from an <strong>administrator</strong> PowerShell — it registers a scheduled task at highest privileges. <code>curl.exe</code> spelled out, because bare <code>curl</code> is an alias for <code>Invoke-WebRequest</code> in Windows PowerShell 5.1.</p>
+<div class="row">
+  <pre><code>curl.exe -fsSL https://newbox.stevenmliss.com/newbox.ps1 | iex</code></pre>
+  <button type="button">copy</button>
+</div>
 
 <h2>Linux</h2>
-<pre><code>curl -fsSL https://newbox.stevenmliss.com/newbox.sh | sh</code></pre>
-<p class="note">Editor only. The AutoHotkey layer is Windows-only; on Linux that job belongs to the window manager.</p>
+<div class="row">
+  <pre><code>curl -fsSL https://newbox.stevenmliss.com/newbox.sh | sh</code></pre>
+  <button type="button">copy</button>
+</div>
 
-<footer>Published from devnext. Nothing here is edited by hand.</footer>
+<script>
+  document.querySelectorAll('.row').forEach(function (row) {
+    var btn = row.querySelector('button');
+    btn.addEventListener('click', function () {
+      navigator.clipboard.writeText(row.querySelector('code').textContent).then(function () {
+        btn.textContent = 'copied';
+        setTimeout(function () { btn.textContent = 'copy'; }, 1200);
+      });
+    });
+  });
+</script>
