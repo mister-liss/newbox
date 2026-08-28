@@ -12,7 +12,7 @@ if (-not $elevated) {
     Write-Host 'AutoHotkey send input while an elevated window has focus.'
     Write-Host ''
     Write-Host 'Start PowerShell as administrator, then run:'
-    Write-Host ('  iwr ' + $Source + '/gluc/windows/setup.ps1 -UseBasicParsing | iex')
+    Write-Host ('  curl.exe -fsSL ' + $Source + '/gluc/windows/setup.ps1 | iex')
     exit 1
 }
 

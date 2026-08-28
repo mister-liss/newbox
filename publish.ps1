@@ -15,6 +15,22 @@ $glucDst = Join-Path $docs 'gluc\windows'
 New-Item -ItemType Directory -Force -Path $glucDst | Out-Null
 Copy-Item (Join-Path $src 'gluc\windows\*') $glucDst -Recurse -Force
 
+$remote = (& git -C $PSScriptRoot remote get-url origin).Trim()
+if ($remote -notmatch '[:/]([^/:]+)/([^/]+?)(\.git)?$') { throw "cannot parse remote: $remote" }
+$owner = $Matches[1]
+$repo  = $Matches[2]
+$url = if ($repo -ieq "$owner.github.io") { "https://$owner.github.io" } else { "https://$owner.github.io/$repo" }
+
+$hit = 0
+Get-ChildItem $docs -Recurse -File | ForEach-Object {
+    $t = [System.IO.File]::ReadAllText($_.FullName)
+    if ($t.Contains('@@URL@@')) {
+        [System.IO.File]::WriteAllText($_.FullName, $t.Replace('@@URL@@', $url))
+        $hit++
+    }
+}
+Write-Output "site url $url  (substituted in $hit files)"
+
 New-Item -ItemType File -Path (Join-Path $docs '.nojekyll') -Force | Out-Null
 
 & git -C $PSScriptRoot add -A
