@@ -44,6 +44,10 @@ $ico = Join-Path $dir 'gvim.ico'
 Get-Payload 'gvim.ico' $ico
 Write-Output "wrote $ico"
 
+$saver = Join-Path $dir 'paste-image.ps1'
+Get-Payload 'paste-image.ps1' $saver
+Write-Output "wrote $saver"
+
 $exe = Get-ChildItem 'C:\Program Files*\AutoHotkey\v2\AutoHotkey64.exe' -EA SilentlyContinue |
        Sort-Object FullName -Descending | Select-Object -First 1 -ExpandProperty FullName
 if (-not $exe) { throw 'AutoHotkey64.exe not found - open a new shell and re-run' }

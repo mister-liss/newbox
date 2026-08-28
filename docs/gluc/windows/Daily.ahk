@@ -13,19 +13,50 @@ XButton2::#=
 #HotIf WinActive("ahk_class CabinetWClass")
 #t::
 {
+    dir := ExplorerPath()
+    if (dir != "")
+        Run WtPath() ' -d "' dir '"'
+    else
+        Run WtPath()   ; This PC, Control Panel, search results
+}
+
+; ---- Ctrl+V in Explorer: write a clipboard image out as a file -------
+^v::
+{
+    static CF_DIB := 8, CF_HDROP := 15
+    if (DllCall("IsClipboardFormatAvailable", "UInt", CF_HDROP)
+        || !DllCall("IsClipboardFormatAvailable", "UInt", CF_DIB))
+    {
+        Send "^v"
+        return
+    }
+    dir := ExplorerPath()
+    if (dir = "")
+    {
+        Send "^v"
+        return
+    }
+    saver := EnvGet("LOCALAPPDATA") "\gluc\paste-image.ps1"
+    if (!FileExist(saver))
+    {
+        Send "^v"
+        return
+    }
+    RunWait 'powershell.exe -NoProfile -STA -ExecutionPolicy Bypass -File "' saver '" -Directory "' dir '"', , "Hide"
+}
+#HotIf
+
+ExplorerPath()
+{
     hwnd := WinGetID("A")
     for window in ComObject("Shell.Application").Windows
     {
         if (window.HWND != hwnd)
             continue
-        dir := StrReplace(window.Document.Folder.Self.Path, "\", "/")
-        Run WtPath() ' -d "' dir '"'
-        return
+        return StrReplace(window.Document.Folder.Self.Path, "\", "/")
     }
-    ; This PC, Control Panel, search results - no folder to read
-    Run WtPath()
+    return ""
 }
-#HotIf
 
 ; ---- Win+T in Windows Terminal: another terminal, same cwd -----------
 #HotIf WinActive("ahk_exe WindowsTerminal.exe")
