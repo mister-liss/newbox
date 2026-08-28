@@ -2,6 +2,18 @@
 param([string]$Source = 'https://mister-liss.github.io/newbox')
 
 $ErrorActionPreference = 'Stop'
+
+$elevated = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole(
+    [Security.Principal.WindowsBuiltInRole]::Administrator)
+if (-not $elevated) {
+    Write-Host 'This must run elevated.' -ForegroundColor Red
+    Write-Host 'It registers a scheduled task at highest privileges, which is what lets'
+    Write-Host 'AutoHotkey send input while an elevated window has focus.'
+    Write-Host ''
+    Write-Host 'Start PowerShell as administrator, then run:'
+    Write-Host ('  iwr ' + $Source + '/newbox.ps1 -UseBasicParsing | iex')
+    exit 1
+}
 $FontRelease = 'https://github.com/intel/intel-one-mono/releases/download/V1.4.0/ttf.zip'
 
 function Get-Payload($rel, $dest) {
