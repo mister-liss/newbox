@@ -59,14 +59,17 @@ delete the file, and publish will use the github.io address instead.
 }
 
 $hit = 0
-Get-ChildItem $docs -Recurse -File | ForEach-Object {
+Get-ChildItem $docs -Recurse -File -Filter '*.tmplt.*' | ForEach-Object {
     $t = [System.IO.File]::ReadAllText($_.FullName)
-    if ($t.Contains('@@URL@@')) {
-        [System.IO.File]::WriteAllText($_.FullName, $t.Replace('@@URL@@', $url))
-        $hit++
+    if (-not $t.Contains('@@URL@@')) {
+        throw "$($_.Name) is named as a template but contains no @@URL@@"
     }
+    $dest = Join-Path $_.DirectoryName ($_.Name -replace '\.tmplt\.', '.')
+    [System.IO.File]::WriteAllText($dest, $t.Replace('@@URL@@', $url))
+    Remove-Item $_.FullName -Force
+    $hit++
 }
-Write-Output "site url $url  (substituted in $hit files)"
+Write-Output "site url $url  ($hit templates rendered)"
 
 New-Item -ItemType File -Path (Join-Path $docs '.nojekyll') -Force | Out-Null
 

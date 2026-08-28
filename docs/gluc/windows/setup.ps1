@@ -40,6 +40,10 @@ $dest = Join-Path $dir 'Daily.ahk'
 Get-Payload 'Daily.ahk' $dest
 Write-Output "wrote $dest"
 
+$ico = Join-Path $dir 'gvim.ico'
+Get-Payload 'gvim.ico' $ico
+Write-Output "wrote $ico"
+
 $exe = Get-ChildItem 'C:\Program Files*\AutoHotkey\v2\AutoHotkey64.exe' -EA SilentlyContinue |
        Sort-Object FullName -Descending | Select-Object -First 1 -ExpandProperty FullName
 if (-not $exe) { throw 'AutoHotkey64.exe not found - open a new shell and re-run' }
@@ -109,9 +113,25 @@ if (-not $gvim) { throw 'gvim.exe not found - run newbox.ps1 first' }
 $classes = 'HKCU:\Software\Classes'
 New-Item -Path "$classes\$ProgId\shell\open\command" -Force | Out-Null
 Set-ItemProperty -Path "$classes\$ProgId" -Name '(default)' -Value 'Text file'
+New-Item -Path "$classes\$ProgId\Application" -Force | Out-Null
+Set-ItemProperty -Path "$classes\$ProgId\Application" -Name 'ApplicationName' -Value 'gvim'
 New-Item -Path "$classes\$ProgId\DefaultIcon" -Force | Out-Null
 Set-ItemProperty -Path "$classes\$ProgId\DefaultIcon" -Name '(default)' -Value "$gvim,0"
 Set-ItemProperty -Path "$classes\$ProgId\shell\open\command" -Name '(default)' -Value ('"' + $gvim + '" "%1"')
+
+foreach ($pair in @{ 'gvim.exe' = 'gvim'; 'vim.exe' = 'vim' }.GetEnumerator()) {
+    $app = "$classes\Applications\$($pair.Key)"
+    $target = Join-Path (Split-Path $gvim -Parent) $pair.Key
+    if (Test-Path $target) {
+        New-Item -Path "$app\shell\open\command" -Force | Out-Null
+        Set-ItemProperty -Path "$app\shell\open\command" -Name '(default)' -Value ('"' + $target + '" "%1"')
+        Set-ItemProperty -Path $app -Name 'FriendlyAppName' -Value $pair.Value
+    }
+}
+
+$iconKey = "$classes\Applications\gvim.exe\DefaultIcon"
+New-Item -Path $iconKey -Force | Out-Null
+Set-ItemProperty -Path $iconKey -Name '(default)' -Value $ico
 
 foreach ($ext in $Extensions) {
     New-Item -Path "$classes\$ext\OpenWithProgIds" -Force | Out-Null
