@@ -34,7 +34,7 @@ if ($LASTEXITCODE -eq 0) {
     & $winget install --id AutoHotkey.AutoHotkey --exact --silent --accept-package-agreements --accept-source-agreements --disable-interactivity
 }
 
-$dir = Join-Path ([Environment]::GetFolderPath('MyDocuments')) 'AutoHotkey'
+$dir = Join-Path $env:LOCALAPPDATA 'gluc'
 New-Item -ItemType Directory -Force -Path $dir | Out-Null
 $dest = Join-Path $dir 'Daily.ahk'
 Get-Payload 'Daily.ahk' $dest
@@ -47,7 +47,7 @@ if (-not $exe) { throw 'AutoHotkey64.exe not found - open a new shell and re-run
 $me        = "$env:USERDOMAIN\$env:USERNAME"
 $action    = New-ScheduledTaskAction -Execute $exe -Argument ('"' + $dest + '"')
 $trigger   = New-ScheduledTaskTrigger -AtLogOn -User $me
-$principal = New-ScheduledTaskPrincipal -UserId $me -LogonType InteractiveToken -RunLevel Highest
+$principal = New-ScheduledTaskPrincipal -UserId $me -LogonType Interactive -RunLevel Highest
 $settings  = New-ScheduledTaskSettingsSet -MultipleInstances IgnoreNew -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries
 
 Register-ScheduledTask -TaskName $TaskName -Action $action -Trigger $trigger -Principal $principal -Settings $settings -Force | Out-Null
