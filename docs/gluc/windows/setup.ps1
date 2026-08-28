@@ -2,7 +2,7 @@
 param([string]$Source = 'https://newbox.stevenmliss.com')
 
 $ErrorActionPreference = 'Stop'
-$TaskName = 'RunAutohotkeyDailyScript'
+$TaskName = 'gluc'
 
 $elevated = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole(
     [Security.Principal.WindowsBuiltInRole]::Administrator)
@@ -26,13 +26,19 @@ $winget = (Get-Command winget -EA SilentlyContinue).Source
 if (-not $winget) { $winget = "$env:LOCALAPPDATA\Microsoft\WindowsApps\winget.exe" }
 if (-not (Test-Path $winget)) { throw 'winget not found - install App Installer from the Store' }
 
-& $winget list --id AutoHotkey.AutoHotkey --exact --disable-interactivity 2>&1 | Out-Null
-if ($LASTEXITCODE -eq 0) {
-    Write-Output 'already installed: AutoHotkey.AutoHotkey'
-} else {
-    Write-Output 'installing AutoHotkey.AutoHotkey'
-    & $winget install --id AutoHotkey.AutoHotkey --exact --silent --accept-package-agreements --accept-source-agreements --disable-interactivity
+foreach ($id in 'AutoHotkey.AutoHotkey', 'Microsoft.DotNet.DesktopRuntime.10') {
+    & $winget list --id $id --exact --disable-interactivity 2>&1 | Out-Null
+    if ($LASTEXITCODE -eq 0) {
+        Write-Output "already installed: $id"
+    } else {
+        Write-Output "installing $id"
+        & $winget install --id $id --exact --silent --accept-package-agreements --accept-source-agreements --disable-interactivity
+    }
 }
+
+Stop-ScheduledTask -TaskName $TaskName -EA SilentlyContinue
+Get-Process Gluc.Host, AutoHotkey64 -EA SilentlyContinue | Stop-Process -Force
+Start-Sleep -Milliseconds 500
 
 $dir = Join-Path $env:LOCALAPPDATA 'gluc'
 New-Item -ItemType Directory -Force -Path $dir | Out-Null
@@ -48,12 +54,20 @@ $saver = Join-Path $dir 'paste-image.ps1'
 Get-Payload 'paste-image.ps1' $saver
 Write-Output "wrote $saver"
 
-$exe = Get-ChildItem 'C:\Program Files*\AutoHotkey\v2\AutoHotkey64.exe' -EA SilentlyContinue |
-       Sort-Object FullName -Descending | Select-Object -First 1 -ExpandProperty FullName
-if (-not $exe) { throw 'AutoHotkey64.exe not found - open a new shell and re-run' }
+$zip = Join-Path $env:TEMP 'gluc-host.zip'
+Get-Payload 'gluc-host.zip' $zip
+Expand-Archive -LiteralPath $zip -DestinationPath $dir -Force
+Remove-Item $zip -Force
+$host_exe = Join-Path $dir 'Gluc.Host.exe'
+if (-not (Test-Path $host_exe)) { throw 'gluc-host.zip did not contain Gluc.Host.exe' }
+Write-Output "wrote $host_exe"
+
+# The task starts the host, and the host starts AutoHotkey. A supervisor has to
+# outlive what it supervises, so it cannot be the thing the task launches.
+Unregister-ScheduledTask -TaskName 'RunAutohotkeyDailyScript' -Confirm:$false -EA SilentlyContinue
 
 $me        = "$env:USERDOMAIN\$env:USERNAME"
-$action    = New-ScheduledTaskAction -Execute $exe -Argument ('"' + $dest + '"')
+$action    = New-ScheduledTaskAction -Execute $host_exe
 $trigger   = New-ScheduledTaskTrigger -AtLogOn -User $me
 $principal = New-ScheduledTaskPrincipal -UserId $me -LogonType Interactive -RunLevel Highest
 $settings  = New-ScheduledTaskSettingsSet -MultipleInstances IgnoreNew -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries
