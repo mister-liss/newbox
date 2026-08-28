@@ -56,3 +56,50 @@ Write-Output "registered scheduled task: $TaskName"
 Stop-ScheduledTask -TaskName $TaskName -EA SilentlyContinue
 Start-ScheduledTask -TaskName $TaskName
 Write-Output "started $TaskName"
+
+$ProgId = 'gluc.gvim'
+$Extensions = @(
+    '.txt','.log','.md','.markdown','.ini','.cfg','.conf','.yml','.yaml','.toml',
+    '.json','.xml','.csv','.tsv','.sql','.vim','.lua',
+    '.sh','.bash','.ps1','.psm1','.py','.js','.ts','.css',
+    '.c','.h','.cpp','.hpp','.cs','.java','.go','.rs','.rb'
+)
+
+$gvim = Get-ChildItem 'C:\Program Files*\Vim\vim*\gvim.exe' -EA SilentlyContinue |
+        Sort-Object FullName -Descending | Select-Object -First 1 -ExpandProperty FullName
+if (-not $gvim) { throw 'gvim.exe not found - run newbox.ps1 first' }
+
+$classes = 'HKCU:\Software\Classes'
+New-Item -Path "$classes\$ProgId\shell\open\command" -Force | Out-Null
+Set-ItemProperty -Path "$classes\$ProgId" -Name '(default)' -Value 'Text file'
+New-Item -Path "$classes\$ProgId\DefaultIcon" -Force | Out-Null
+Set-ItemProperty -Path "$classes\$ProgId\DefaultIcon" -Name '(default)' -Value "$gvim,0"
+Set-ItemProperty -Path "$classes\$ProgId\shell\open\command" -Name '(default)' -Value ('"' + $gvim + '" "%1"')
+
+foreach ($ext in $Extensions) {
+    New-Item -Path "$classes\$ext\OpenWithProgIds" -Force | Out-Null
+    Set-ItemProperty -Path "$classes\$ext\OpenWithProgIds" -Name $ProgId -Value ([byte[]]@()) -Type None
+    Set-ItemProperty -Path "$classes\$ext" -Name '(default)' -Value $ProgId
+}
+
+Add-Type -Name Shell -Namespace Win32 -MemberDefinition @'
+[DllImport("shell32.dll")]
+public static extern void SHChangeNotify(int e, uint f, IntPtr a, IntPtr b);
+'@
+[Win32.Shell]::SHChangeNotify(0x08000000, 0, [IntPtr]::Zero, [IntPtr]::Zero)
+
+$blocked = @()
+foreach ($ext in $Extensions) {
+    $uc = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\FileExts\$ext\UserChoice"
+    $held = (Get-ItemProperty -Path $uc -Name ProgId -EA SilentlyContinue).ProgId
+    if ($held -and $held -ne $ProgId) { $blocked += "$ext -> $held" }
+}
+
+Write-Output "associated $($Extensions.Count) extensions with gvim"
+if ($blocked) {
+    Write-Host ''
+    Write-Host 'Windows keeps its own default for these, and a program cannot change it:' -ForegroundColor Yellow
+    $blocked | ForEach-Object { Write-Host "  $_" -ForegroundColor Yellow }
+    Write-Host 'gvim is in their Open with list. To make it the default, use Open with >' -ForegroundColor Yellow
+    Write-Host 'Choose another app, or Settings > Apps > Default apps.' -ForegroundColor Yellow
+}
