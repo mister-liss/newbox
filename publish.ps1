@@ -15,6 +15,8 @@ $glucDst = Join-Path $docs 'gluc\windows'
 New-Item -ItemType Directory -Force -Path $glucDst | Out-Null
 Copy-Item (Join-Path $src 'gluc\windows\*') $glucDst -Recurse -Force
 
+New-Item -ItemType File -Path (Join-Path $docs '.nojekyll') -Force | Out-Null
+
 & git -C $PSScriptRoot add -A
 $changed = & git -C $PSScriptRoot status --porcelain
 if (-not $changed) {
