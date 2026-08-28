@@ -137,11 +137,12 @@ foreach ($ext in $Extensions) {
     }
 }
 
-Write-Output "associated $($Extensions.Count) extensions with gvim"
+Write-Output "associated $($Extensions.Count) extensions with gvim, and added it to their Open with menus"
 if ($blocked) {
     Write-Host ''
-    Write-Host 'Windows keeps its own default for these, and a program cannot change it:' -ForegroundColor Yellow
+    Write-Host 'These have a UserChoice entry, which overrides that:' -ForegroundColor Yellow
     $blocked | ForEach-Object { Write-Host "  $_" -ForegroundColor Yellow }
-    Write-Host 'gvim is in their Open with list. To make it the default, use Open with >' -ForegroundColor Yellow
-    Write-Host 'Choose another app, or Settings > Apps > Default apps.' -ForegroundColor Yellow
+    Write-Host ''
+    Write-Host 'If you did not set those yourself, Windows did during setup.' -ForegroundColor Yellow
+    Write-Host 'Change them in Settings > Apps > Default apps   ms-settings:defaultapps' -ForegroundColor Yellow
 }
