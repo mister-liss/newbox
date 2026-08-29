@@ -42,9 +42,18 @@ Start-Sleep -Milliseconds 500
 
 $dir = Join-Path $env:LOCALAPPDATA 'gluc'
 New-Item -ItemType Directory -Force -Path $dir | Out-Null
+
+# Daily.ahk is the hotkeys and gluc-watch.ahk is the focus watcher; they run as
+# separate processes at different integrity levels. Both #Include the others, so
+# a missing one stops AutoHotkey loading at all.
+$scripts = 'Daily.ahk', 'gluc-watch.ahk', 'gluc-pipe.ahk', 'gluc-watch-core.ahk',
+           'gluc-explorer.ahk', 'gluc-terminal.ahk'
+foreach ($script in $scripts) {
+    $to = Join-Path $dir $script
+    Get-Payload $script $to
+    Write-Output "wrote $to"
+}
 $dest = Join-Path $dir 'Daily.ahk'
-Get-Payload 'Daily.ahk' $dest
-Write-Output "wrote $dest"
 
 $ico = Join-Path $dir 'gvim.ico'
 Get-Payload 'gvim.ico' $ico
