@@ -48,3 +48,23 @@ augroup ScrollMargins
     autocmd!
     autocmd VimEnter,VimResized * let &scrolloff = &lines / 4 | let &sidescrolloff = &columns / 4
 augroup END
+
+function! s:GlucVisit() abort
+    if &buftype !=# '' | return | endif
+    let l:file = expand('%:p')
+    if empty(l:file) || !filereadable(l:file) | return | endif
+    let l:dir = has('win32') ? $LOCALAPPDATA . '/gluc' : expand('~/.local/share/gluc')
+    if !isdirectory(l:dir) | return | endif
+    let l:tz = substitute(strftime('%z'), '\(..\)\(..\)$', '\1:\2', '')
+    call writefile([json_encode({
+        \ 'at': strftime('%Y-%m-%dT%H:%M:%S') . l:tz,
+        \ 'path': l:file,
+        \ 'line': line('.'),
+        \ 'by': 'vim',
+        \ 'project': v:null })], l:dir . '/recent.jsonl', 'a')
+endfunction
+
+augroup GlucRecent
+    autocmd!
+    autocmd BufEnter,BufLeave,VimLeavePre * silent! call s:GlucVisit()
+augroup END
