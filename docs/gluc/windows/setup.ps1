@@ -66,7 +66,7 @@ if (Test-Path $marktext) {
 }
 
 Stop-ScheduledTask -TaskName $TaskName -EA SilentlyContinue
-Get-Process Gluc.Host, AutoHotkey64 -EA SilentlyContinue | Stop-Process -Force
+Get-Process Gluc.Host, AutoHotkey64, marktext -EA SilentlyContinue | Stop-Process -Force
 Start-Sleep -Milliseconds 500
 
 $dir = Join-Path $env:LOCALAPPDATA 'gluc'
@@ -99,6 +99,38 @@ $dest = Join-Path $dir 'Daily.ahk'
 $ico = Join-Path $dir 'gvim.ico'
 Get-Payload 'gvim.ico' $ico
 Write-Output "wrote $ico"
+
+# MarkText settings travel with the install, the way the vimrc does. The file
+# holds no paths and no state - just preferences - so it is safe to carry
+# between machines whole.
+#
+# Merged rather than overwritten, so a MarkText version that adds a key keeps
+# its own default for it instead of losing the key entirely. The trade is that
+# re-running setup puts our value back over anything changed by hand since,
+# which is what "settings come with the install" means.
+$prefsPath = Join-Path $env:APPDATA 'marktext\preferences.json'
+$prefsTemp = Join-Path $env:TEMP 'marktext-preferences.json'
+try {
+    Get-Payload 'marktext-preferences.json' $prefsTemp
+    $ours = Get-Content $prefsTemp -Raw | ConvertFrom-Json
+    $merged = [ordered]@{}
+    if (Test-Path $prefsPath) {
+        $existing = Get-Content $prefsPath -Raw | ConvertFrom-Json
+        foreach ($k in $existing.PSObject.Properties.Name) { $merged[$k] = $existing.$k }
+    }
+    foreach ($k in $ours.PSObject.Properties.Name) { $merged[$k] = $ours.$k }
+
+    New-Item -ItemType Directory -Force -Path (Split-Path $prefsPath -Parent) | Out-Null
+    # Not Set-Content -Encoding UTF8: on PowerShell 5.1 that writes a BOM, and
+    # JSON.parse in Electron rejects one, which would leave MarkText unable to
+    # read its own preferences.
+    $utf8 = New-Object System.Text.UTF8Encoding $false
+    [System.IO.File]::WriteAllText($prefsPath, ($merged | ConvertTo-Json -Depth 10), $utf8)
+    Remove-Item $prefsTemp -Force -EA SilentlyContinue
+    Write-Output "wrote $prefsPath ($($merged.Count) keys)"
+} catch {
+    Write-Warning "marktext preferences not applied: $($_.Exception.Message)"
+}
 
 $saver = Join-Path $dir 'paste-image.ps1'
 Get-Payload 'paste-image.ps1' $saver
