@@ -243,21 +243,34 @@ public static extern void SHChangeNotify(int e, uint f, IntPtr a, IntPtr b);
 '@
 [Win32.Shell]::SHChangeNotify(0x08000000, 0, [IntPtr]::Zero, [IntPtr]::Zero)
 
+# UserChoice outranks everything written above, and Windows will not let a
+# script change it - the key carries a deny ACE, added specifically to stop
+# programs hijacking associations. Taking ownership to strip that ACE is the
+# attack the protection exists to block, so this only reports.
+#
+# Checked per extension against the id that extension is meant to have. An
+# earlier run of this script put .md under the gvim ProgId, so comparing
+# everything against a single id would call that correct and say nothing.
 $blocked = @()
-foreach ($ext in $Extensions) {
+$intended = @{}
+foreach ($ext in $Extensions) { $intended[$ext] = $ProgId }
+foreach ($ext in $MarkdownExtensions) { $intended[$ext] = $MarkdownProgId }
+
+foreach ($ext in $intended.Keys) {
     $uc = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\FileExts\$ext\UserChoice"
     $held = (Get-ItemProperty -Path $uc -Name ProgId -EA SilentlyContinue).ProgId
-    if ($held -and $held -ne $ProgId) {
-        $exe = Get-DefaultAppExe $held
-        if (-not ($exe -and $exe -ieq $gvim)) {
-            $blocked += ('{0,-11} {1}' -f $ext, (Get-DefaultAppName $held))
-        }
-    }
+    if (-not $held -or $held -eq $intended[$ext]) { continue }
+
+    # A different id pointing at the right program is not a problem.
+    $exe = Get-DefaultAppExe $held
+    if ($intended[$ext] -eq $ProgId -and $exe -and $exe -ieq $gvim) { continue }
+    if ($intended[$ext] -eq $MarkdownProgId -and $exe -and $exe -ieq $marktext) { continue }
+
+    $want = if ($intended[$ext] -eq $MarkdownProgId) { 'marktext' } else { 'gvim' }
+    $blocked += ('{0,-11} opens with {1,-24} should be {2}' -f $ext, (Get-DefaultAppName $held), $want)
 }
 
-Write-Output "associated $($Extensions.Count) extensions with gvim, and added it to their Open with menus"
 if ($blocked) {
-    Write-Host ''
     Write-Host 'These have a UserChoice entry, which overrides that:' -ForegroundColor Yellow
     $blocked | ForEach-Object { Write-Host "  $_" -ForegroundColor Yellow }
     Write-Host ''
