@@ -49,22 +49,48 @@ augroup ScrollMargins
     autocmd VimEnter,VimResized * let &scrolloff = &lines / 4 | let &sidescrolloff = &columns / 4
 augroup END
 
-function! s:GlucVisit() abort
+function! s:GlucDir() abort
+    return has('win32') ? $LOCALAPPDATA . '/gluc' : expand('~/.local/share/gluc')
+endfunction
+
+function! s:GlucSend(verb, payload) abort
+    let l:file = s:GlucDir() . '/endpoint'
+    if !filereadable(l:file) | return | endif
+    let l:endpoint = readfile(l:file, '', 2)
+    if len(l:endpoint) < 2 | return | endif
+    try
+        let l:channel = ch_open('127.0.0.1:' . l:endpoint[0],
+            \ { 'mode': 'raw', 'waittime': 200 })
+    catch
+        return
+    endtry
+    if ch_status(l:channel) !=# 'open' | return | endif
+    let l:body = json_encode(a:payload)
+    call ch_sendraw(l:channel, join([
+        \ 'POST /' . a:verb . ' HTTP/1.1',
+        \ 'Host: 127.0.0.1',
+        \ 'Authorization: Bearer ' . l:endpoint[1],
+        \ 'Content-Type: application/json',
+        \ 'Content-Length: ' . strlen(l:body),
+        \ 'Connection: close',
+        \ '', l:body], "\r\n"))
+endfunction
+
+function! s:GlucEvent(kind) abort
     if &buftype !=# '' | return | endif
     let l:file = expand('%:p')
     if empty(l:file) || !filereadable(l:file) | return | endif
-    let l:dir = has('win32') ? $LOCALAPPDATA . '/gluc' : expand('~/.local/share/gluc')
-    if !isdirectory(l:dir) | return | endif
-    let l:tz = substitute(strftime('%z'), '\(..\)\(..\)$', '\1:\2', '')
-    call writefile([json_encode({
-        \ 'at': strftime('%Y-%m-%dT%H:%M:%S') . l:tz,
+    call s:GlucSend('event', {
+        \ 'kind': a:kind,
+        \ 'source': 'vim',
+        \ 'id': string(getpid()),
         \ 'path': l:file,
-        \ 'line': line('.'),
-        \ 'by': 'vim',
-        \ 'project': v:null })], l:dir . '/recent.jsonl', 'a')
+        \ 'bag': { 'line': line('.') } })
 endfunction
 
 augroup GlucRecent
     autocmd!
-    autocmd BufEnter,BufLeave,VimLeavePre * silent! call s:GlucVisit()
+    autocmd BufEnter * silent! call s:GlucEvent('select')
+    autocmd BufLeave,VimLeavePre * silent! call s:GlucEvent('close')
+    autocmd BufWritePost * silent! call s:GlucEvent('write')
 augroup END

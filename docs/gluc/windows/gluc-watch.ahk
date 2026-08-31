@@ -12,7 +12,7 @@ Persistent()
 ; fire when an elevated window has focus. Two requirements that cannot both be
 ; met by one process, and two jobs that were never related anyway.
 
-#Include gluc-pipe.ahk
+#Include gluc-http.ahk
 #Include gluc-watch-core.ahk
 #Include gluc-explorer.ahk
 #Include gluc-terminal.ahk

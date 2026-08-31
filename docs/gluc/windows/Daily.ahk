@@ -1,6 +1,6 @@
 ﻿#Requires AutoHotkey v2.0
 
-#Include gluc-pipe.ahk
+#Include gluc-http.ahk
 
 WtPath() => EnvGet("LOCALAPPDATA") "\Microsoft\WindowsApps\wt.exe"
 

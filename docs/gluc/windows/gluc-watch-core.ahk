@@ -165,21 +165,15 @@ GlucDispatch(extractor, result)
     GLUC_LAST_KEY := key
     GlucLog("  dispatch " extractor.source ":" id " path=" (path = "" ? "(none)" : path))
 
-    if (path != "")
-    {
-        r1 := GlucSend("report`t" GlucReportJson(extractor.source, id, path))
-        GlucLog("  report reply=[" r1 "] err=" GlucLastError)
-    }
-    reply := GlucSend("focus`t" extractor.source "`t" id)
+    reply := GlucSend("event", GlucEventJson("focus", extractor.source, id, path))
     GlucLog("  focus reply=[" reply "] err=" GlucLastError)
 
     ; The tray tip is the only place this is visible. Reporting is silent when
     ; the host is down, which is exactly when you want to be told.
-    if (reply = "")
+    if (GlucLastError != "")
     {
-        global GlucLastError
-        GlucLog("  send failed, CreateFile error " GlucLastError)
-        GlucTip("host not reachable (err " GlucLastError ")`n" extractor.source ":" id)
+        GlucLog("  send failed: " GlucLastError)
+        GlucTip("host not reachable`n" GlucLastError "`n" extractor.source ":" id)
     }
     else
         GlucTip(extractor.source ":" id (path != "" ? "`n" path : "`nno path"))
@@ -219,19 +213,7 @@ GlucRepush(*)
 GlucShowContext(*)
 {
     reply := GlucSend("context")
-    MsgBox(reply = "" ? "host not reachable" : reply, "gluc context", "Iconi")
-}
-
-GlucReportJson(source, id, path)
-{
-    return '{"source":"' GlucJsonEscape(source) '","id":"' GlucJsonEscape(id) '","path":"' GlucJsonEscape(path) '"}'
-}
-
-GlucJsonEscape(s)
-{
-    s := StrReplace(s, "\", "\\")
-    s := StrReplace(s, '"', '\"')
-    return s
+    MsgBox(GlucLastError != "" ? "host not reachable`n" GlucLastError : reply, "gluc context", "Iconi")
 }
 
 GlucIsFilesystemPath(p)

@@ -46,13 +46,25 @@ New-Item -ItemType Directory -Force -Path $dir | Out-Null
 # Daily.ahk is the hotkeys and gluc-watch.ahk is the focus watcher; they run as
 # separate processes at different integrity levels. Both #Include the others, so
 # a missing one stops AutoHotkey loading at all.
-$scripts = 'Daily.ahk', 'gluc-watch.ahk', 'gluc-pipe.ahk', 'gluc-watch-core.ahk',
+$scripts = 'Daily.ahk', 'gluc-watch.ahk', 'gluc-http.ahk', 'gluc-watch-core.ahk',
            'gluc-explorer.ahk', 'gluc-terminal.ahk'
 foreach ($script in $scripts) {
     $to = Join-Path $dir $script
     Get-Payload $script $to
     Write-Output "wrote $to"
 }
+# Scripts that used to be part of the payload. Nothing includes them any more,
+# so they are inert - but an inert copy of a file that once mattered is exactly
+# what you find and believe on the day something is wrong.
+$retired = 'gluc-pipe.ahk', 'gluc-core.ahk'
+foreach ($script in $retired) {
+    $old = Join-Path $dir $script
+    if (Test-Path $old) {
+        Remove-Item $old -Force
+        Write-Output "removed $old"
+    }
+}
+
 $dest = Join-Path $dir 'Daily.ahk'
 
 $ico = Join-Path $dir 'gvim.ico'
