@@ -36,6 +36,35 @@ foreach ($id in 'AutoHotkey.AutoHotkey', 'Microsoft.DotNet.DesktopRuntime.10') {
     }
 }
 
+# MarkText is not in winget, so it follows the same shape newbox uses for the
+# font: a pinned URL and a direct download. Pinned rather than "latest" so a
+# bump is a deliberate edit here instead of whatever shipped this morning.
+#
+# It is what `open` on a markdown file resolves to. Without it that verb falls
+# back to gvim further down, which works but leaves open and edit doing the
+# same thing - the exact conflation the verbs exist to undo.
+$MarkTextVersion = '0.19.1'
+$MarkTextUrl = "https://github.com/marktext/marktext/releases/download/v$MarkTextVersion/marktext-win-x64-$MarkTextVersion-setup.exe"
+$marktext = Join-Path $env:LOCALAPPDATA 'Programs\marktext\marktext.exe'
+
+if (Test-Path $marktext) {
+    Write-Output 'already installed: marktext'
+} else {
+    Write-Output "installing marktext $MarkTextVersion"
+    $installer = Join-Path $env:TEMP "marktext-$MarkTextVersion-setup.exe"
+    try {
+        Invoke-WebRequest -Uri $MarkTextUrl -OutFile $installer -UseBasicParsing
+        # electron-builder NSIS. /S is silent, and it installs per-user, which
+        # is why this does not need the elevation the rest of setup has.
+        Start-Process $installer -ArgumentList '/S' -Wait
+        Remove-Item $installer -Force -EA SilentlyContinue
+        if (Test-Path $marktext) { Write-Output "wrote $marktext" }
+        else { Write-Warning 'marktext installer ran but the exe is not where it was expected' }
+    } catch {
+        Write-Warning "marktext install failed ($($_.Exception.Message)) - markdown will open in gvim"
+    }
+}
+
 Stop-ScheduledTask -TaskName $TaskName -EA SilentlyContinue
 Get-Process Gluc.Host, AutoHotkey64 -EA SilentlyContinue | Stop-Process -Force
 Start-Sleep -Milliseconds 500
@@ -151,7 +180,6 @@ if (-not $gvim) { throw 'gvim.exe not found - run newbox.ps1 first' }
 
 $MarkdownProgId = 'gluc.markdown'
 $MarkdownExtensions = @('.md', '.markdown')
-$marktext = Join-Path $env:LOCALAPPDATA 'Programs\marktext\marktext.exe'
 
 $classes = 'HKCU:\Software\Classes'
 
