@@ -139,7 +139,7 @@ function Get-DefaultAppName($id) {
 
 $ProgId = 'gluc.gvim' 
 $Extensions = @(
-    '.txt','.log','.md','.markdown','.ini','.cfg','.conf','.yml','.yaml','.toml',
+    '.txt','.log','.ini','.cfg','.conf','.yml','.yaml','.toml',
     '.json','.xml','.csv','.tsv','.sql','.vim','.lua',
     '.sh','.bash','.ps1','.psm1','.py','.js','.ts','.css',
     '.c','.h','.cpp','.hpp','.cs','.java','.go','.rs','.rb'
@@ -149,14 +149,44 @@ $gvim = Get-ChildItem 'C:\Program Files*\Vim\vim*\gvim.exe' -EA SilentlyContinue
         Sort-Object FullName -Descending | Select-Object -First 1 -ExpandProperty FullName
 if (-not $gvim) { throw 'gvim.exe not found - run newbox.ps1 first' }
 
+$MarkdownProgId = 'gluc.markdown'
+$MarkdownExtensions = @('.md', '.markdown')
+$marktext = Join-Path $env:LOCALAPPDATA 'Programs\marktext\marktext.exe'
+
 $classes = 'HKCU:\Software\Classes'
+
+# Windows has room for more than one verb per type, and collapsing them into
+# `open` is what forces every consumer to invent its own way of saying "no, the
+# other kind of opening". `%2` is where a position goes - gvim gets +42 from
+# the switcher through it - and a command with no slot for one simply opens the
+# file at the top.
+function Set-Verb($progId, $verb, $command) {
+    $key = "$classes\$progId\shell\$verb\command"
+    New-Item -Path $key -Force | Out-Null
+    Set-ItemProperty -Path $key -Name '(default)' -Value $command
+}
 New-Item -Path "$classes\$ProgId\shell\open\command" -Force | Out-Null
 Set-ItemProperty -Path "$classes\$ProgId" -Name '(default)' -Value 'Text file'
 New-Item -Path "$classes\$ProgId\Application" -Force | Out-Null
 Set-ItemProperty -Path "$classes\$ProgId\Application" -Name 'ApplicationName' -Value 'gvim'
 New-Item -Path "$classes\$ProgId\DefaultIcon" -Force | Out-Null
 Set-ItemProperty -Path "$classes\$ProgId\DefaultIcon" -Name '(default)' -Value "$gvim,0"
-Set-ItemProperty -Path "$classes\$ProgId\shell\open\command" -Name '(default)' -Value ('"' + $gvim + '" "%1"')
+Set-Verb $ProgId 'open' ('"' + $gvim + '" %2 "%1"')
+Set-Verb $ProgId 'edit' ('"' + $gvim + '" %2 "%1"')
+
+# Markdown is the case that makes the point: opening it means reading it
+# rendered, editing it means vim. One ProgId cannot say both, so it gets its
+# own. Falls back to gvim for both verbs when MarkText is not installed.
+New-Item -Path "$classes\$MarkdownProgId" -Force | Out-Null
+Set-ItemProperty -Path "$classes\$MarkdownProgId" -Name '(default)' -Value 'Markdown document'
+Set-Verb $MarkdownProgId 'edit' ('"' + $gvim + '" %2 "%1"')
+if (Test-Path $marktext) {
+    Set-Verb $MarkdownProgId 'open' ('"' + $marktext + '" "%1"')
+    Write-Output "markdown opens in marktext, edits in gvim"
+} else {
+    Set-Verb $MarkdownProgId 'open' ('"' + $gvim + '" %2 "%1"')
+    Write-Output 'marktext not installed - markdown opens in gvim'
+}
 
 foreach ($pair in @{ 'gvim.exe' = 'gvim'; 'vim.exe' = 'vim' }.GetEnumerator()) {
     $app = "$classes\Applications\$($pair.Key)"
@@ -172,10 +202,11 @@ $iconKey = "$classes\Applications\gvim.exe\DefaultIcon"
 New-Item -Path $iconKey -Force | Out-Null
 Set-ItemProperty -Path $iconKey -Name '(default)' -Value $ico
 
-foreach ($ext in $Extensions) {
-    New-Item -Path "$classes\$ext\OpenWithProgIds" -Force | Out-Null
-    Set-ItemProperty -Path "$classes\$ext\OpenWithProgIds" -Name $ProgId -Value ([byte[]]@()) -Type None
-    Set-ItemProperty -Path "$classes\$ext" -Name '(default)' -Value $ProgId
+foreach ($pair in @($Extensions | ForEach-Object { @{ Ext = $_; Id = $ProgId } }) +
+                  @($MarkdownExtensions | ForEach-Object { @{ Ext = $_; Id = $MarkdownProgId } })) {
+    New-Item -Path "$classes\$($pair.Ext)\OpenWithProgIds" -Force | Out-Null
+    Set-ItemProperty -Path "$classes\$($pair.Ext)\OpenWithProgIds" -Name $pair.Id -Value ([byte[]]@()) -Type None
+    Set-ItemProperty -Path "$classes\$($pair.Ext)" -Name '(default)' -Value $pair.Id
 }
 
 Add-Type -Name Shell -Namespace Win32 -MemberDefinition @'
