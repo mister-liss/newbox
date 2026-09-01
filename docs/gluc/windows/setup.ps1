@@ -119,6 +119,16 @@ foreach ($profilePath in @($PROFILE.CurrentUserAllHosts, $PROFILE.CurrentUserCur
     }
 }
 
+# The commit this payload was published from. One file, so comparing what is
+# installed against the repo is a diff rather than an investigation.
+try {
+    $stampFile = Join-Path $dir 'version.txt'
+    Get-Payload 'version.txt' $stampFile
+    Write-Output ("installed version " + (Get-Content $stampFile -Raw).Trim())
+} catch {
+    Write-Warning 'no version.txt in the feed - published before versions existed'
+}
+
 $ico = Join-Path $dir 'gvim.ico'
 Get-Payload 'gvim.ico' $ico
 Write-Output "wrote $ico"

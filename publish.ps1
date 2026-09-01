@@ -33,6 +33,14 @@ $glucDst = Join-Path $docs 'gluc\windows'
 New-Item -ItemType Directory -Force -Path $glucDst | Out-Null
 Copy-Item (Join-Path $src 'gluc\windows\*') $glucDst -Recurse -Force
 
+# What this payload was built from. Derived, so there is nothing to bump and
+# nothing to forget - setup installs it, and comparing a machine to the repo is
+# `git rev-parse --short HEAD` against one file.
+$stamp = (& git -C $src rev-parse --short HEAD).Trim()
+if ((& git -C $src status --porcelain)) { $stamp += '-dirty' }
+[System.IO.File]::WriteAllText((Join-Path $glucDst 'version.txt'), $stamp)
+Write-Output "payload version $stamp"
+
 if ($cname) { [System.IO.File]::WriteAllBytes($cnamePath, $cname) }
 
 if ($cname) {
