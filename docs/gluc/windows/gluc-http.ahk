@@ -132,14 +132,27 @@ GlucOneLine(text)
 ;
 ; No timestamp: the host stamps arrival. Loopback latency is nothing, and it
 ; keeps every producer out of the business of getting an offset right.
-GlucEventJson(kind, source, id, path := "")
+GlucEventJson(kind, source, osObject, path := "")
 {
     json := '{"kind":"' GlucJsonEscape(kind) '"'
         . ',"source":"' GlucJsonEscape(source) '"'
-        . ',"id":"' GlucJsonEscape(id) '"'
+        . ',"osObject":' osObject
     if (path != "")
         json .= ',"path":"' GlucJsonEscape(path) '"'
     return json "}"
+}
+
+; What the OS calls the thing an event is about. A reporter sends the parts it
+; can actually know - a window, a process, or both - and nothing outside the
+; daemon's Windows code looks inside.
+GlucWindowJson(hwnd)
+{
+    return '{"hwnd":' hwnd '}'
+}
+
+GlucWindowProcessJson(hwnd, pid)
+{
+    return '{"hwnd":' hwnd ',"pid":' pid '}'
 }
 
 GlucJsonEscape(s)

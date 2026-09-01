@@ -83,7 +83,7 @@ function! s:GlucEvent(kind) abort
     call s:GlucSend('event', {
         \ 'kind': a:kind,
         \ 'source': 'vim',
-        \ 'id': string(getpid()),
+        \ 'osObject': { 'pid': getpid() },
         \ 'path': l:file,
         \ 'bag': { 'line': line('.') } })
 endfunction

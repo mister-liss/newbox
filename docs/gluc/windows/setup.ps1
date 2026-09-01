@@ -72,11 +72,13 @@ Start-Sleep -Milliseconds 500
 $dir = Join-Path $env:LOCALAPPDATA 'gluc'
 New-Item -ItemType Directory -Force -Path $dir | Out-Null
 
-# Daily.ahk is the hotkeys and gluc-watch.ahk is the focus watcher; they run as
-# separate processes at different integrity levels. Both #Include the others, so
-# a missing one stops AutoHotkey loading at all.
-$scripts = 'Daily.ahk', 'gluc-watch.ahk', 'gluc-http.ahk', 'gluc-watch-core.ahk',
-           'gluc-explorer.ahk', 'gluc-terminal.ahk'
+# Daily.ahk is the hotkeys, elevated. The three forwarders are separate
+# unelevated processes: focus reports every foreground change, the other two
+# report for apps that cannot report for themselves. All of them #Include
+# gluc-http.ahk, and a missing include stops AutoHotkey loading at all.
+$scripts = 'Daily.ahk', 'gluc-http.ahk',
+           'gluc-focus-forwarder.ahk', 'gluc-explorer-forwarder.ahk',
+           'gluc-terminal-forwarder.ahk'
 foreach ($script in $scripts) {
     $to = Join-Path $dir $script
     Get-Payload $script $to
@@ -85,7 +87,9 @@ foreach ($script in $scripts) {
 # Scripts that used to be part of the payload. Nothing includes them any more,
 # so they are inert - but an inert copy of a file that once mattered is exactly
 # what you find and believe on the day something is wrong.
-$retired = 'gluc-pipe.ahk', 'gluc-core.ahk'
+$retired = 'gluc-pipe.ahk', 'gluc-core.ahk',
+            'gluc-watch.ahk', 'gluc-watch-core.ahk',
+            'gluc-explorer.ahk', 'gluc-terminal.ahk'
 foreach ($script in $retired) {
     $old = Join-Path $dir $script
     if (Test-Path $old) {
