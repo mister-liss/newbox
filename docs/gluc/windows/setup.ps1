@@ -78,7 +78,7 @@ New-Item -ItemType Directory -Force -Path $dir | Out-Null
 # gluc-http.ahk, and a missing include stops AutoHotkey loading at all.
 $scripts = 'Daily.ahk', 'gluc-http.ahk',
            'gluc-focus-forwarder.ahk', 'gluc-explorer-forwarder.ahk',
-           'gluc-terminal-forwarder.ahk'
+           'gluc-terminal-forwarder.ahk', 'gluc-shell.ps1'
 foreach ($script in $scripts) {
     $to = Join-Path $dir $script
     Get-Payload $script $to
@@ -99,6 +99,25 @@ foreach ($script in $retired) {
 }
 
 $dest = Join-Path $dir 'Daily.ahk'
+
+# The shell plugin is dot-sourced from $PROFILE rather than run by the daemon -
+# it has to live inside the shell to know when that shell is being typed in.
+#
+# One marked line, added only if absent, so re-running setup does not stack
+# them and removing it is obvious.
+$profileLine = '. "$env:LOCALAPPDATA\gluc\gluc-shell.ps1"   # gluc'
+foreach ($profilePath in @($PROFILE.CurrentUserAllHosts, $PROFILE.CurrentUserCurrentHost) | Select-Object -Unique) {
+    if (-not $profilePath) { continue }
+    $parent = Split-Path $profilePath -Parent
+    if (-not (Test-Path $parent)) { New-Item -ItemType Directory -Force -Path $parent | Out-Null }
+    $existing = if (Test-Path $profilePath) { Get-Content $profilePath -Raw } else { '' }
+    if ($existing -notmatch [regex]::Escape('gluc-shell.ps1')) {
+        Add-Content -Path $profilePath -Value $profileLine
+        Write-Output "added gluc to $profilePath"
+    } else {
+        Write-Output "already in $profilePath"
+    }
+}
 
 $ico = Join-Path $dir 'gvim.ico'
 Get-Payload 'gvim.ico' $ico
