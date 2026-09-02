@@ -1,0 +1,73 @@
+; Tactile Dark - a contrast theme, not merely a dark one.
+;
+; Built from a shipped contrast theme rather than from scratch: the structure
+; below is what Windows actually requires, and a file missing any of it either
+; fails to apply or applies as an ordinary theme with no contrast enforcement.
+
+[Theme]
+DisplayName=Tactile Dark
+SetLogonBackground=0
+
+[Control Panel\Colors]
+; Surfaces - a warm off-black rather than #000000
+Background=26 27 30
+Window=26 27 30
+ButtonFace=26 27 30
+Menu=26 27 30
+MenuBar=26 27 30
+Scrollbar=26 27 30
+AppWorkspace=26 27 30
+InfoWindow=26 27 30
+ButtonAlternateFace=26 27 30
+InactiveTitle=26 27 30
+GradientInactiveTitle=26 27 30
+
+; Text
+WindowText=229 231 235
+MenuText=229 231 235
+InfoText=229 231 235
+TitleText=229 231 235
+ButtonText=229 231 235
+GrayText=107 114 128
+InactiveTitleText=107 114 128
+
+; Selection and interaction.
+; HilightText is muted rather than white on purpose. Apps use it for two
+; opposite jobs: text drawn on a selection, and surfaces that must contrast
+; with the selection colour - Settings paints whole cards with it. Pure
+; white gives a blinding card; dark makes selected text vanish. 170 is the
+; compromise, and it is one number for both because they are one slot.
+Hilight=55 65 81
+HilightText=170 175 185
+MenuHilight=55 65 81
+ActiveTitle=55 65 81
+GradientActiveTitle=55 65 81
+HotTrackingColor=96 165 250
+
+; Boundaries - a light frame against a dark surface is what gives windows and
+; controls a hard edge instead of a soft wash.
+WindowFrame=229 231 235
+ActiveBorder=229 231 235
+InactiveBorder=107 114 128
+ButtonHilight=107 114 128
+ButtonDkShadow=107 114 128
+ButtonShadow=107 114 128
+ButtonLight=107 114 128
+
+[Control Panel\Desktop]
+Wallpaper=
+TileWallpaper=0
+WallpaperStyle=10
+Pattern=
+
+[VisualStyles]
+; Not optional and not blank. AeroLite is what puts Windows into contrast mode
+; at all - without this path it applies as an ordinary theme and nothing is
+; enforced.
+Path=%SystemRoot%\resources\themes\Aero\AeroLite.msstyles
+ColorStyle=NormalColor
+Size=NormalSize
+HighContrast=1
+
+[MasterThemeSelector]
+MTSM=RJSPBS

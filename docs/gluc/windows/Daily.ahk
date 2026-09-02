@@ -77,6 +77,12 @@ ExplorerPath()
 
 #g::GlucSend("recent")
 
+; ---- Win+P: read a colour off the screen ----------------------------
+; Steals the projector menu, which this machine has never needed. The
+; picker captures the screen at startup and exits on its own, so it is
+; not supervised - it just runs.
+#p::Run EnvGet("LOCALAPPDATA") "\gluc\Gluc.Picker.exe"
+
 #c::PlaceWin()
 
 PlaceWin()

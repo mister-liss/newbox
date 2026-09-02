@@ -66,7 +66,7 @@ if (Test-Path $marktext) {
 }
 
 Stop-ScheduledTask -TaskName $TaskName -EA SilentlyContinue
-Get-Process Gluc.Host, AutoHotkey64, marktext -EA SilentlyContinue | Stop-Process -Force
+Get-Process Gluc.Host, Gluc.FileForwarder, Gluc.Picker, AutoHotkey64, marktext -EA SilentlyContinue | Stop-Process -Force
 Start-Sleep -Milliseconds 500
 
 $dir = Join-Path $env:LOCALAPPDATA 'gluc'
@@ -175,6 +175,10 @@ Expand-Archive -LiteralPath $zip -DestinationPath $dir -Force
 Remove-Item $zip -Force
 $host_exe = Join-Path $dir 'Gluc.Host.exe'
 if (-not (Test-Path $host_exe)) { throw 'gluc-host.zip did not contain Gluc.Host.exe' }
+$forwarder_exe = Join-Path $dir 'Gluc.FileForwarder.exe'
+if (-not (Test-Path $forwarder_exe)) { throw 'gluc-host.zip did not contain Gluc.FileForwarder.exe' }
+$picker_exe = Join-Path $dir 'Gluc.Picker.exe'
+if (-not (Test-Path $picker_exe)) { throw 'gluc-host.zip did not contain Gluc.Picker.exe' }
 Write-Output "wrote $host_exe"
 
 # The task starts the host, and the host starts AutoHotkey. A supervisor has to

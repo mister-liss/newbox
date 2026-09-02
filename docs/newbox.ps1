@@ -72,6 +72,18 @@ if (Test-Path $vimrc) { Copy-Item $vimrc "$vimrc.bak" -Force }
 Get-Payload '_vimrc' $vimrc
 Write-Output "wrote $vimrc"
 
+# A contrast theme rather than an ordinary dark one. Dark mode is a suggestion
+# apps may ignore; a contrast theme makes them defer to this palette, which is
+# what guarantees legibility and visible window edges.
+#
+# Only written, not applied. Windows has no API for applying a theme - the
+# shell verb opens the personalisation page and waits for a click, by design.
+$themes = Join-Path $env:LOCALAPPDATA 'Microsoft\Windows\Themes'
+New-Item -ItemType Directory -Force -Path $themes | Out-Null
+$theme = Join-Path $themes 'TactileDark.theme'
+Get-Payload 'TactileDark.theme' $theme
+Write-Output "wrote $theme  (apply it from Settings > Accessibility > Contrast themes)"
+
 $geom = Join-Path ([System.IO.Path]::GetTempPath()) 'set-geometry.ps1'
 Get-Payload 'set-geometry.ps1' $geom
 & $geom
