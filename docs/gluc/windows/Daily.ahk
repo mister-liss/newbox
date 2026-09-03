@@ -82,25 +82,26 @@ ExplorerPath()
 ; picker captures the screen at startup and exits on its own, so it is
 ; not supervised - it just runs.
 ;
-; Launched through Explorer so it does NOT inherit this script's elevation.
-; This runs at highest privileges because AutoHotkey has to send input while
-; an elevated window has focus; the picker needs none of that. It reads the
-; screen and writes the clipboard, and as a child of this script it came up
-; elevated, where its own attempt to take the foreground crosses an integrity
-; boundary and the keyboard never arrives - the window opens, and esc does
-; nothing until you click it.
+; Launched directly, and that matters. Windows only lets a process take the
+; foreground if it has standing: it is the foreground process, it was started
+; by the foreground process, or it just handled input. This script just handled
+; input - that is why the hotkey ran - so a child of it inherits standing and
+; the picker can raise itself.
 ;
-; Explorer runs as the shell user at medium integrity, so anything it starts
-; does too. Same reason the daemon de-elevates what it opens.
+; Going through explorer.exe to de-elevate broke exactly that. The picker
+; became Explorer's child rather than this script's, so it inherited standing
+; only when Explorer happened to be the foreground process - which is to say
+; when the desktop had focus, and never when a real window did.
+;
+; So it runs elevated, which it does not need and should not have. That is a
+; separate problem from being able to answer the keyboard, and worth solving
+; without giving up the foreground again.
 #p::
 {
-    ; Hand the foreground over before launching. Windows only lets a process
-    ; take the foreground if it just handled input, which this script did - it
-    ; is why the hotkey ran at all - and the picker did not. Left to fight for
-    ; it, the picker won sometimes and came up deaf the rest of the time.
-    ; ASFW_ANY: the next process to ask gets it.
+    ; Belt and braces: hand standing to the next process that asks, in case
+    ; inheritance alone is not enough. ASFW_ANY.
     DllCall("AllowSetForegroundWindow", "UInt", 0xFFFFFFFF)
-    Run 'explorer.exe "' EnvGet("LOCALAPPDATA") '\gluc\Gluc.Picker.exe"'
+    Run EnvGet("LOCALAPPDATA") "\gluc\Gluc.Picker.exe"
 }
 
 #c::PlaceWin()
