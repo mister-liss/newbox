@@ -129,6 +129,27 @@ try {
     Write-Warning 'no version.txt in the feed - published before versions existed'
 }
 
+# Win+G belongs to the switcher, and the Game Bar overlay will not give it up.
+#
+# AutoHotkey does get the key - the switcher opens - but it cannot suppress it,
+# so the overlay opens too. A keyboard hook does not help: the overlay's claim
+# is handled outside the chain a hook can preempt. Neither does turning off
+# GameDVR, AppCapture or the startup panel; those govern recording and tips,
+# not the shortcut. Measured, all of them.
+#
+# So the package goes. Reversible - re-register it from its staged files, or
+# reinstall Xbox Game Bar from the Store.
+$overlay = Get-AppxPackage -Name 'Microsoft.XboxGamingOverlay' -EA SilentlyContinue
+if ($overlay) {
+    try {
+        Remove-AppxPackage -Package $overlay.PackageFullName -EA Stop
+        Write-Output 'removed the Game Bar overlay, so Win+G belongs to the switcher'
+    } catch {
+        Write-Warning "could not remove the Game Bar overlay - Win+G will open it as well as the switcher: $($_.Exception.Message)"
+    }
+}
+
+
 $ico = Join-Path $dir 'gvim.ico'
 Get-Payload 'gvim.ico' $ico
 Write-Output "wrote $ico"
