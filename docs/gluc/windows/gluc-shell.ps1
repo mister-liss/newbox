@@ -113,7 +113,12 @@ function Test-GlucActive {
     }
 }
 
-if (Get-Module PSReadLine) {
+# PSReadLine is loaded by the host when it starts the prompt loop, which
+# happens after $PROFILE runs - so testing whether it is already loaded is
+# false in exactly the interactive case this exists for, and every handler was
+# silently skipped. Import it, then check the command really is there.
+Import-Module PSReadLine -ErrorAction SilentlyContinue
+if (Get-Command Set-PSReadLineKeyHandler -ErrorAction SilentlyContinue) {
     $keys = @()
     foreach ($c in [char[]]'abcdefghijklmnopqrstuvwxyz0123456789') { $keys += "$c" }
     $keys += 'Spacebar'
