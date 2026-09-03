@@ -81,7 +81,18 @@ ExplorerPath()
 ; Steals the projector menu, which this machine has never needed. The
 ; picker captures the screen at startup and exits on its own, so it is
 ; not supervised - it just runs.
-#p::Run EnvGet("LOCALAPPDATA") "\gluc\Gluc.Picker.exe"
+;
+; Launched through Explorer so it does NOT inherit this script's elevation.
+; This runs at highest privileges because AutoHotkey has to send input while
+; an elevated window has focus; the picker needs none of that. It reads the
+; screen and writes the clipboard, and as a child of this script it came up
+; elevated, where its own attempt to take the foreground crosses an integrity
+; boundary and the keyboard never arrives - the window opens, and esc does
+; nothing until you click it.
+;
+; Explorer runs as the shell user at medium integrity, so anything it starts
+; does too. Same reason the daemon de-elevates what it opens.
+#p::Run 'explorer.exe "' EnvGet("LOCALAPPDATA") '\gluc\Gluc.Picker.exe"'
 
 #c::PlaceWin()
 
