@@ -92,7 +92,16 @@ ExplorerPath()
 ;
 ; Explorer runs as the shell user at medium integrity, so anything it starts
 ; does too. Same reason the daemon de-elevates what it opens.
-#p::Run 'explorer.exe "' EnvGet("LOCALAPPDATA") '\gluc\Gluc.Picker.exe"'
+#p::
+{
+    ; Hand the foreground over before launching. Windows only lets a process
+    ; take the foreground if it just handled input, which this script did - it
+    ; is why the hotkey ran at all - and the picker did not. Left to fight for
+    ; it, the picker won sometimes and came up deaf the rest of the time.
+    ; ASFW_ANY: the next process to ask gets it.
+    DllCall("AllowSetForegroundWindow", "UInt", 0xFFFFFFFF)
+    Run 'explorer.exe "' EnvGet("LOCALAPPDATA") '\gluc\Gluc.Picker.exe"'
+}
 
 #c::PlaceWin()
 
