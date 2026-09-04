@@ -6,6 +6,18 @@ set nocompatible     "use vim extras not available in vi
 source $VIMRUNTIME/vimrc_example.vim
 behave mswin
 
+"swap, backup and undo out of the working tree - // keeps the full path in the
+"name, so same-named files in different projects do not collide
+let s:vimtmp = has("win32") ? expand("~/vimfiles/tmp") : expand("~/.vim/tmp")
+for s:sub in ["swap", "backup", "undo"]
+    if !isdirectory(s:vimtmp . "/" . s:sub)
+        call mkdir(s:vimtmp . "/" . s:sub, "p")
+    endif
+endfor
+let &directory = s:vimtmp . "/swap//"
+let &backupdir = s:vimtmp . "/backup//"
+let &undodir   = s:vimtmp . "/undo//"
+
 colorscheme evening  "pretty colors
 set cursorline       "set the cursor to be a line
 

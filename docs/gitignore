@@ -1,0 +1,22 @@
+# Machine-wide excludes, installed by newbox.
+#
+# Editor and tool scratch. None of it is source, and everything that scans a
+# working tree - git status, grep, gluc's heat map - is worse for seeing it.
+# Kept here rather than in each project's .gitignore because it is a property
+# of the machine's tools, not of any repo.
+
+# vim
+*.swp
+*.swo
+*.swn
+*.un~
+*~
+
+# merge and patch leftovers
+*.orig
+*.rej
+
+# shell noise
+.DS_Store
+Thumbs.db
+desktop.ini

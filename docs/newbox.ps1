@@ -72,6 +72,20 @@ if (Test-Path $vimrc) { Copy-Item $vimrc "$vimrc.bak" -Force }
 Get-Payload '_vimrc' $vimrc
 Write-Output "wrote $vimrc"
 
+# Excludes that belong to the machine rather than to any repo. git reads this
+# path on its own - it is the documented default - so nothing has to be
+# configured for it to take effect, and an existing core.excludesFile is left
+# alone rather than overwritten.
+$ignore = Join-Path $env:USERPROFILE '.config\git\ignore'
+New-Item -ItemType Directory -Force -Path (Split-Path $ignore -Parent) | Out-Null
+Get-Payload 'gitignore' $ignore
+Write-Output "wrote $ignore"
+
+$excludes = (& git config --global --get core.excludesFile 2>$null)
+if ($LASTEXITCODE -eq 0 -and $excludes) {
+    Write-Warning "core.excludesFile is set to $excludes, so git reads that instead of $ignore"
+}
+
 # A contrast theme rather than an ordinary dark one. Dark mode is a suggestion
 # apps may ignore; a contrast theme makes them defer to this palette, which is
 # what guarantees legibility and visible window edges.
