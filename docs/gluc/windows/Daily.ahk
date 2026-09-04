@@ -77,6 +77,37 @@ ExplorerPath()
 
 #g::GlucSend("recent")
 
+; ---- Win+E: Explorer on the project you are in ----------------------
+; Home is a fine answer when gluc does not know where you are and a poor one
+; when it does. Falls back to plain Explorer rather than refusing, so the key
+; keeps working with the host down.
+#e::
+{
+    dir := GlucProject()
+    if (dir != "")
+        Run 'explorer.exe "' dir '"'
+    else
+        Run "explorer.exe"
+}
+
+; The project you are in, as gluc sees it. Consumer policy, so it lives here
+; rather than in the client: the newest focus-project that names one, not
+; simply the newest. A null means focus moved somewhere gluc knows nothing
+; about, and the useful answer then is the last place it did know.
+GlucProject()
+{
+    reply := GlucSend("query", '{"kinds":["focus-project"],"limit":20}')
+    if (GlucLastError != "" || reply = "")
+        return ""
+    ; Newest first, so the first element carrying a project is the one wanted -
+    ; and a null project is not a quoted string, which is what lets one pattern
+    ; stand in for a parse. projectName does not match: the key is compared
+    ; whole, up to its closing quote.
+    if (!RegExMatch(reply, '"project":"([^"]*)"', &m))
+        return ""
+    return StrReplace(m[1], "\\", "\")
+}
+
 ; ---- Win+P: read a colour off the screen ----------------------------
 ; Steals the projector menu, which this machine has never needed. The
 ; picker captures the screen at startup and exits on its own, so it is
