@@ -72,12 +72,32 @@ function global:prompt {
 # Redraw without the state line, then accept. InvokePrompt calls the function
 # above again in place, so the two lines you were typing at collapse to the one
 # that is worth keeping - and the command you ran scrolls away as `> thing`.
+#
+# ExtraPromptLineCount is what makes that land on the right row. PSReadLine
+# remembers where the input starts, not where the prompt starts, and works back
+# to the second by subtracting this. Left at its default of zero the redraw
+# rewrites the input line and the state line above it survives - which is
+# exactly the pollution this exists to stop.
 Import-Module PSReadLine -ErrorAction SilentlyContinue
 if (Get-Command Set-PSReadLineKeyHandler -ErrorAction SilentlyContinue) {
+    Set-PSReadLineOption -ExtraPromptLineCount 1
+
     Set-PSReadLineKeyHandler -Chord Enter -ScriptBlock {
-        $global:PromptIsLeaving = $true
-        try { [Microsoft.PowerShell.PSConsoleReadLine]::InvokePrompt($null, $null) }
-        finally { $global:PromptIsLeaving = $false }
+        # An unfinished command - an open brace, a trailing pipe - means Enter
+        # continues the line rather than running it, and the prompt is not
+        # going anywhere. Collapsing it there would take the state away while
+        # you are still typing at it.
+        $errors = $null
+        [Microsoft.PowerShell.PSConsoleReadLine]::GetBufferState(
+            [ref]$null, [ref]$null, [ref]$errors, [ref]$null)
+
+        if (-not $errors -or $errors.Count -eq 0) {
+            $global:PromptIsLeaving = $true
+            try { [Microsoft.PowerShell.PSConsoleReadLine]::InvokePrompt($null, $null) }
+            catch { }
+            finally { $global:PromptIsLeaving = $false }
+        }
+
         [Microsoft.PowerShell.PSConsoleReadLine]::AcceptLine()
     }
 }
