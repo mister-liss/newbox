@@ -7,6 +7,16 @@ if (-not (Test-Path (Join-Path $src 'newbox'))) { throw "devnext not found at $s
 $src = (Resolve-Path $src).Path
 $docs = Join-Path $PSScriptRoot 'docs'
 
+# Build what the payload ships, rather than trusting whatever zip happens to be
+# sitting in the repo. A stale zip is the worst kind of failure to chase: the
+# code is right, the commit is right, the version stamp is right, and the
+# machine is running something else entirely.
+#
+# This stops the local host - the build cannot write over files it is running
+# from - so publishing starts it again at the end.
+$build = Join-Path $src 'gluc\tools\build-host.ps1'
+if (Test-Path $build) { & $build } else { Write-Warning "no build-host.ps1 at $build" }
+
 & git -C $PSScriptRoot fetch -q origin
 $incoming = @(& git -C $PSScriptRoot log --format='%h %an %s' HEAD..origin/main)
 if ($incoming) {
@@ -93,3 +103,11 @@ $head = (& git -C $src rev-parse --short HEAD).Trim()
 & git -C $PSScriptRoot commit -m "$CommitPrefix $head" | Out-Null
 & git -C $PSScriptRoot push
 Write-Output 'published'
+
+# The build stopped it, to write over the files it was running from. Leaving
+# the machine that published without a daemon is a strange thing for
+# publishing to do.
+if (Get-ScheduledTask -TaskName 'gluc' -EA SilentlyContinue) {
+    Start-ScheduledTask -TaskName 'gluc'
+    Write-Output 'restarted gluc'
+}
