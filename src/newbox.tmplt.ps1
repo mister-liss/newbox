@@ -121,8 +121,19 @@ if ($PSScriptRoot) {
 if ($devnext) {
     & $devnext -Source $Source
 } else {
+    # A feed does not have to carry devnext. This one is published by newbox,
+    # which builds fine without it - so a missing setup here is a feed that
+    # offers the box and not the stack, and saying so is the right answer
+    # rather than failing on the last step of a run that worked.
     $tmp = Join-Path ([System.IO.Path]::GetTempPath()) 'devnext-setup.ps1'
-    Invoke-WebRequest -Uri "$Source/devnext/windows/setup.ps1" -OutFile $tmp -UseBasicParsing
+    try {
+        Invoke-WebRequest -Uri "$Source/devnext/windows/setup.ps1" -OutFile $tmp -UseBasicParsing
+    } catch {
+        Write-Output ''
+        Write-Output "This feed carries newbox only - no devnext at $Source/devnext."
+        Write-Output 'The box is ready; nothing else to install.'
+        return
+    }
     & $tmp -Source $Source
-    Remove-Item $tmp -Force
+    Remove-Item $tmp -Force -EA SilentlyContinue
 }
