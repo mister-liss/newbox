@@ -64,12 +64,18 @@ foreach ($script in $scripts) {
     Get-Payload $script $to
     Write-Output "wrote $to"
 }
-# Scripts that used to be part of the payload. Nothing includes them any more,
-# so they are inert - but an inert copy of a file that once mattered is exactly
+# Files that used to be part of this payload. Nothing reads them any more, so
+# they are inert - but an inert copy of a file that once mattered is exactly
 # what you find and believe on the day something is wrong.
+#
+# gvim.ico is the newest of them, and it did not stop mattering: it moved to
+# devnext with the associations that use it. A copy left here would be the
+# harder kind of stale, since it is a file that still does something, just not
+# from this folder.
 $retired = 'gluc-pipe.ahk', 'gluc-core.ahk',
             'gluc-watch.ahk', 'gluc-watch-core.ahk',
-            'gluc-explorer.ahk', 'gluc-terminal.ahk'
+            'gluc-explorer.ahk', 'gluc-terminal.ahk',
+            'gvim.ico'
 foreach ($script in $retired) {
     $old = Join-Path $dir $script
     if (Test-Path $old) {
