@@ -39,12 +39,19 @@ if (Test-Path $docs) { Remove-Item $docs -Recurse -Force }
 New-Item -ItemType Directory -Force -Path $docs | Out-Null
 
 Copy-Item (Join-Path $src 'newbox\*') $docs -Recurse -Force
-# gluc ships in areas rather than one folder: the Windows half that setup runs,
-# and the vim reporter, which is a plugin rather than an installer script.
-foreach ($area in 'windows', 'vim') {
-    $to = Join-Path $docs "gluc\$area"
-    New-Item -ItemType Directory -Force -Path $to | Out-Null
-    Copy-Item (Join-Path $src "gluc\$area\*") $to -Recurse -Force
+# Three layers, each with its own areas. newbox is the box, devnext is the
+# choices, gluc is the software - and each installs the next, so the feed
+# carries all of them whatever anyone chooses to run.
+$layers = @{
+    'gluc'    = @('windows', 'vim')
+    'devnext' = @('windows')
+}
+foreach ($layer in $layers.Keys) {
+    foreach ($area in $layers[$layer]) {
+        $to = Join-Path $docs "$layer\$area"
+        New-Item -ItemType Directory -Force -Path $to | Out-Null
+        Copy-Item (Join-Path $src "$layer\$area\*") $to -Recurse -Force
+    }
 }
 $glucDst = Join-Path $docs 'gluc\windows'
 
