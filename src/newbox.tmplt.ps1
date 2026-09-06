@@ -72,6 +72,31 @@ if (Test-Path $vimrc) { Copy-Item $vimrc "$vimrc.bak" -Force }
 Get-Payload '_vimrc' $vimrc
 Write-Output "wrote $vimrc"
 
+# The PowerShell profile, which is the _vimrc of the shell.
+#
+# CurrentUserAllHosts rather than the host-specific one, so it applies wherever
+# pwsh runs. It is also the first of the four to load, which is what lets the
+# prompt it defines be wrapped rather than replaced: gluc's shell plugin, dot-
+# sourced at the end of it, chains whatever is there.
+$profileDir = Split-Path $PROFILE.CurrentUserAllHosts -Parent
+New-Item -ItemType Directory -Force -Path $profileDir | Out-Null
+if (Test-Path $PROFILE.CurrentUserAllHosts) {
+    Copy-Item $PROFILE.CurrentUserAllHosts "$($PROFILE.CurrentUserAllHosts).bak" -Force
+}
+Get-Payload 'profile.ps1' $PROFILE.CurrentUserAllHosts
+Write-Output "wrote $($PROFILE.CurrentUserAllHosts)"
+
+# A host-specific profile loads after that one and would win. Nothing here
+# writes it, so its contents are the machine's own business - but a prompt
+# defined there is a prompt that quietly undoes the one above, so say so
+# rather than leaving it to be discovered.
+if (Test-Path $PROFILE.CurrentUserCurrentHost) {
+    $host_ = Get-Content $PROFILE.CurrentUserCurrentHost -Raw -EA SilentlyContinue
+    if ($host_ -match '(?m)^\s*function\s+(global:)?prompt|posh-git') {
+        Write-Warning "$($PROFILE.CurrentUserCurrentHost) defines a prompt of its own, which loads after this one and wins."
+    }
+}
+
 # Excludes that belong to the machine rather than to any repo. git reads this
 # path on its own - it is the documented default - so nothing has to be
 # configured for it to take effect, and an existing core.excludesFile is left
