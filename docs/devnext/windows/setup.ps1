@@ -45,6 +45,33 @@ function Get-Payload($name, $dest, $area = 'windows') {
     else { Invoke-WebRequest -Uri "$Source/devnext/$area/$name" -OutFile $dest -UseBasicParsing }
 }
 
+# The sandbox.
+#
+# Docker Sandboxes rather than Docker Desktop, and they are genuinely separate
+# products: sbx installs to %LOCALAPPDATA%\DockerSandboxes with its own daemon,
+# its own named pipe and its own storage. Verified on 2026-09-06 - `sbx ls`,
+# `sbx secret ls` and `sbx policy log` all answer with Desktop's engine stopped
+# and unreachable, and `sbx diagnose` names no Desktop component at all.
+#
+# So no Desktop, which was the question worth settling before committing to it.
+#
+# devnext's rather than gluc's by the usual test: gluc does not stop working
+# without it. Sandboxed agents are a choice about how to develop, which is what
+# this layer is for.
+$winget = (Get-Command winget -EA SilentlyContinue).Source
+if (-not $winget) { $winget = "$env:LOCALAPPDATA\Microsoft\WindowsApps\winget.exe" }
+if (Test-Path $winget) {
+    & $winget list --id Docker.sbx --exact --disable-interactivity 2>&1 | Out-Null
+    if ($LASTEXITCODE -eq 0) {
+        Write-Output 'already installed: Docker.sbx'
+    } else {
+        Write-Output 'installing Docker.sbx'
+        & $winget install --id Docker.sbx --exact --silent --accept-package-agreements --accept-source-agreements --disable-interactivity
+    }
+} else {
+    Write-Warning 'winget not found - install Docker Sandboxes by hand, see sandbox/RUNBOOK.md'
+}
+
 # The software first, then the choices about what it hands files to. devnext
 # depends on gluc and not the other way round: these associations point at
 # ProgIds gluc's switcher asks for by verb, and MarkText exists to give `open`
