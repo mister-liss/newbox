@@ -106,19 +106,23 @@ Remove-Item $geom -Force
 Write-Output ''
 Write-Output 'Done. Open gvim.'
 
-$gluc = $null
+# newbox prepares a box. What it prepares it for is devnext, which brings gluc
+# with it - so the handoff is to devnext rather than to gluc directly. A box
+# without either is still a box worth having, which is why this is the last
+# thing rather than the whole point.
+$devnext = $null
 if ($PSScriptRoot) {
-    $gluc = @(
-        (Join-Path $PSScriptRoot 'gluc\windows\setup.ps1'),
-        (Join-Path $PSScriptRoot '..\gluc\windows\setup.ps1')
+    $devnext = @(
+        (Join-Path $PSScriptRoot 'devnext\windows\setup.ps1'),
+        (Join-Path $PSScriptRoot '..\devnext\windows\setup.ps1')
     ) | Where-Object { Test-Path $_ } | Select-Object -First 1
 }
 
-if ($gluc) {
-    & $gluc -Source $Source
+if ($devnext) {
+    & $devnext -Source $Source
 } else {
-    $tmp = Join-Path ([System.IO.Path]::GetTempPath()) 'gluc-setup.ps1'
-    Invoke-WebRequest -Uri "$Source/gluc/windows/setup.ps1" -OutFile $tmp -UseBasicParsing
+    $tmp = Join-Path ([System.IO.Path]::GetTempPath()) 'devnext-setup.ps1'
+    Invoke-WebRequest -Uri "$Source/devnext/windows/setup.ps1" -OutFile $tmp -UseBasicParsing
     & $tmp -Source $Source
     Remove-Item $tmp -Force
 }
