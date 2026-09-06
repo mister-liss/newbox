@@ -6,9 +6,11 @@
 # every command, so history reads as a hundred copies of a thing that changed
 # twice.
 #
-# So it goes in the window title, which Windows Terminal shows on the tab: one
-# copy, always current, and never in the way. What is left on the line is the
-# part that is actually a prompt.
+# So it goes on its own line, and the line below it is the part that is
+# actually a prompt. The insertion point sits at column three whatever you
+# have cd'd into, and the state is one line above it - which is where you are
+# already looking. The tab title says the same thing for the times you are
+# looking at the tab strip instead, which costs nothing to keep current.
 #
 # The branch is read out of .git rather than by running git. A prompt that
 # spawns a process is a prompt you wait for, and this one runs before every
@@ -49,9 +51,14 @@ function global:prompt {
     } else { $cwd }
 
     $branch = Get-Branch $cwd
-    $Host.UI.RawUI.WindowTitle = if ($branch) { "$short  ($branch)" } else { $short }
+    $line = if ($branch) { "$short  ($branch)" } else { $short }
+    $Host.UI.RawUI.WindowTitle = $line
 
-    '> '
+    # Dim, because it is there to be glanced at rather than read, and it should
+    # not compete with the output of whatever you just ran. [char]27 rather
+    # than `e so this still parses under Windows PowerShell.
+    $esc = [char]27
+    "$esc[90m$line$esc[0m`n> "
 }
 
 . "$env:LOCALAPPDATA\gluc\gluc-shell.ps1"   # gluc
