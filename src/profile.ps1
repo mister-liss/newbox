@@ -12,6 +12,11 @@
 # already looking. The tab title says the same thing for the times you are
 # looking at the tab strip instead, which costs nothing to keep current.
 #
+# And it is transient: the moment you press Enter the line is redrawn without
+# it, so it exists while you are typing and leaves nothing behind. Scrollback
+# is the record of what you ran, and a copy of the same directory above every
+# one of them is not a record of anything.
+#
 # The branch is read out of .git rather than by running git. A prompt that
 # spawns a process is a prompt you wait for, and this one runs before every
 # command you type.
@@ -54,11 +59,27 @@ function global:prompt {
     $line = if ($branch) { "$short  ($branch)" } else { $short }
     $Host.UI.RawUI.WindowTitle = $line
 
+    # On the way out, only the prompt itself.
+    if ($global:PromptIsLeaving) { return '> ' }
+
     # Dim, because it is there to be glanced at rather than read, and it should
     # not compete with the output of whatever you just ran. [char]27 rather
     # than `e so this still parses under Windows PowerShell.
     $esc = [char]27
     "$esc[90m$line$esc[0m`n> "
+}
+
+# Redraw without the state line, then accept. InvokePrompt calls the function
+# above again in place, so the two lines you were typing at collapse to the one
+# that is worth keeping - and the command you ran scrolls away as `> thing`.
+Import-Module PSReadLine -ErrorAction SilentlyContinue
+if (Get-Command Set-PSReadLineKeyHandler -ErrorAction SilentlyContinue) {
+    Set-PSReadLineKeyHandler -Chord Enter -ScriptBlock {
+        $global:PromptIsLeaving = $true
+        try { [Microsoft.PowerShell.PSConsoleReadLine]::InvokePrompt($null, $null) }
+        finally { $global:PromptIsLeaving = $false }
+        [Microsoft.PowerShell.PSConsoleReadLine]::AcceptLine()
+    }
 }
 
 . "$env:LOCALAPPDATA\gluc\gluc-shell.ps1"   # gluc
