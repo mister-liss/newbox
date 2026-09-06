@@ -16,10 +16,19 @@ if (-not $elevated) {
     exit 1
 }
 
-function Get-Payload($name, $dest) {
-    $local = if ($PSScriptRoot) { Join-Path $PSScriptRoot $name } else { $null }
+# The payload is not one folder any more. Most of it is the Windows half, but
+# the vim reporter is neither Windows-specific nor a script this installs and
+# runs - so it has its own area, and the fetch takes one rather than assuming.
+#
+# Both halves of this resolve the same way whether setup was downloaded from
+# the feed or run out of the repo, because this script sits in gluc/windows in
+# both, so its parent is gluc in both.
+function Get-Payload($name, $dest, $area = 'windows') {
+    $local = if ($PSScriptRoot) {
+        Join-Path (Join-Path (Split-Path $PSScriptRoot -Parent) $area) $name
+    } else { $null }
     if ($local -and (Test-Path $local)) { Copy-Item -LiteralPath $local -Destination $dest -Force }
-    else { Invoke-WebRequest -Uri "$Source/gluc/windows/$name" -OutFile $dest -UseBasicParsing }
+    else { Invoke-WebRequest -Uri "$Source/gluc/$area/$name" -OutFile $dest -UseBasicParsing }
 }
 
 $winget = (Get-Command winget -EA SilentlyContinue).Source
@@ -117,6 +126,29 @@ foreach ($profilePath in @($PROFILE.CurrentUserAllHosts, $PROFILE.CurrentUserCur
     } else {
         Write-Output "already in $profilePath"
     }
+}
+
+# The vim reporter, installed and hooked up the same way the shell plugin is:
+# gluc puts its own file in place and adds one marked line to the file vim
+# already reads. Neither half edits the other's - _vimrc is newbox's, and this
+# only appends to it, which is also what lets gluc be installed on a machine
+# newbox has never touched.
+#
+# Guarded on the file existing, because a `source` of a missing file is an
+# error on every vim startup, and an editor that complains at launch is one
+# that gets its configuration deleted.
+$plugin = Join-Path $dir 'gluc.vim'
+Get-Payload 'gluc.vim' $plugin -area 'vim'
+Write-Output "wrote $plugin"
+
+$vimrc = Join-Path $env:USERPROFILE '_vimrc'
+$vimLine = 'if filereadable(expand(''$LOCALAPPDATA/gluc/gluc.vim'')) | source $LOCALAPPDATA/gluc/gluc.vim | endif   " gluc'
+$existingVimrc = if (Test-Path $vimrc) { Get-Content $vimrc -Raw } else { '' }
+if ($existingVimrc -notmatch 'gluc\.vim') {
+    Add-Content -Path $vimrc -Value $vimLine
+    Write-Output "added gluc to $vimrc"
+} else {
+    Write-Output "already in $vimrc"
 }
 
 # The commit this payload was published from. One file, so comparing what is
