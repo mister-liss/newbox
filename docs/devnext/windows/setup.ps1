@@ -5,7 +5,7 @@ param(
     # Where the sandbox task definitions are cloned. They are configuration for
     # devnext rather than part of it, so they live in their own private
     # repository - see the block near the sandbox install below.
-    [string]$SandboxKits = 'S:\prj\sandbox-kits'
+    [string]$SandboxKits = 'S:\devnext\kits'
 )
 
 $ErrorActionPreference = 'Stop'
