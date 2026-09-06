@@ -1,5 +1,12 @@
 #Requires -Version 5.1
-param([string]$Source = 'https://newbox.stevenmliss.com')
+param(
+    [string]$Source = 'https://newbox.stevenmliss.com',
+
+    # Where the sandbox task definitions are cloned. They are configuration for
+    # devnext rather than part of it, so they live in their own private
+    # repository - see the block near the sandbox install below.
+    [string]$SandboxKits = 'S:\prj\sandbox-kits'
+)
 
 $ErrorActionPreference = 'Stop'
 
@@ -68,6 +75,27 @@ function Get-Payload($name, $dest, $area = 'windows') {
 #
 # Below it, upgrade. At or above it, leave alone: dragging a working sandbox
 # forward on every install is not this script's decision to make.
+# Where its task definitions come from.
+#
+# Not from here. A definition says which machine reaches which service and how
+# a credential for it is minted - configuration for devnext rather than part of
+# it - so it lives in a private repository of its own and devnext keeps only
+# the machinery. That is also what keeps this layer publishable: nothing in a
+# definition is secret, but internal hostnames and a tenant id have no business
+# on a public feed.
+#
+# Set rather than cloned. Cloning needs credentials and a decision about where,
+# and an installer that silently pulls a private repository onto a machine is
+# doing something it was not asked to do.
+[Environment]::SetEnvironmentVariable('SANDBOX_KITS', $SandboxKits, 'User')
+$env:SANDBOX_KITS = $SandboxKits
+if (Test-Path $SandboxKits) {
+    Write-Output "sandbox kits: $SandboxKits"
+} else {
+    Write-Output "sandbox kits: $SandboxKits (not there yet)"
+    Write-Output "  git clone https://github.com/stlis_microsoft/sandbox-kits.git $SandboxKits"
+}
+
 $SbxLeast = [version]'0.39.0'
 
 $winget = (Get-Command winget -EA SilentlyContinue).Source
