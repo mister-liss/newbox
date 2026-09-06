@@ -104,6 +104,23 @@ function Update-GlucLocation {
     if ($PWD.Path -ne $script:GlucLastPath) { Send-GlucEvent 'select' }
 }
 
+# And wire it, rather than leaving it for the profile to remember. A cd is not
+# a keystroke, so without this the only reports are the idle-to-active ones -
+# change directory, alt-tab away and back, and gluc still believes the place
+# you left.
+#
+# Chains whatever prompt was already defined instead of replacing it, and only
+# once: this file is dot-sourced from more than one profile on some machines,
+# and a wrapper that wrapped itself would recurse until the stack ran out.
+if (-not $global:GlucPromptWrapped) {
+    $global:GlucPromptWrapped = $true
+    $global:GlucInnerPrompt = $function:prompt
+    function global:prompt {
+        Update-GlucLocation
+        if ($global:GlucInnerPrompt) { & $global:GlucInnerPrompt } else { "PS $($PWD.Path)> " }
+    }
+}
+
 # On a keystroke: report only the idle-to-active transition, never the typing
 # itself. Sending on every character would be a sample rather than a change,
 # and would fill the log with one event per keypress.
