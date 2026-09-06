@@ -58,14 +58,36 @@ function Get-Payload($name, $dest, $area = 'windows') {
 # devnext's rather than gluc's by the usual test: gluc does not stop working
 # without it. Sandboxed agents are a choice about how to develop, which is what
 # this layer is for.
+# A MINIMUM rather than a pin, and rather than whatever is newest.
+#
+# 0.39.0 is where `sbx secret set-custom` grew --command and --refresh, so a
+# credential can name how it is minted instead of being handed a value that was
+# already dying. Everything the sandbox does with credentials is built on that,
+# so a 0.38 box is not a slightly older box - it is one where the design does
+# not hold.
+#
+# Below it, upgrade. At or above it, leave alone: dragging a working sandbox
+# forward on every install is not this script's decision to make.
+$SbxLeast = [version]'0.39.0'
+
 $winget = (Get-Command winget -EA SilentlyContinue).Source
 if (-not $winget) { $winget = "$env:LOCALAPPDATA\Microsoft\WindowsApps\winget.exe" }
 if (Test-Path $winget) {
-    & $winget list --id Docker.sbx --exact --disable-interactivity 2>&1 | Out-Null
-    if ($LASTEXITCODE -eq 0) {
-        Write-Output 'already installed: Docker.sbx'
+    # Ask sbx itself rather than winget. winget knows what it installed, which
+    # is not the same as what is on PATH, and the version that matters is the
+    # one that runs.
+    $have = $null
+    $sbx = (Get-Command sbx -EA SilentlyContinue).Source
+    if ($sbx) {
+        $said = & $sbx version 2>&1
+        if ($said -match '(\d+\.\d+\.\d+)') { $have = [version]$Matches[1] }
+    }
+
+    if ($have -and $have -ge $SbxLeast) {
+        Write-Output "already installed: Docker.sbx $have"
     } else {
-        Write-Output 'installing Docker.sbx'
+        $what = if ($have) { "upgrading Docker.sbx $have -> at least $SbxLeast" } else { 'installing Docker.sbx' }
+        Write-Output $what
         & $winget install --id Docker.sbx --exact --silent --accept-package-agreements --accept-source-agreements --disable-interactivity
     }
 } else {
