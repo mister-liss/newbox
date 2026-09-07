@@ -122,9 +122,6 @@ if ($LASTEXITCODE -eq 0 -and $excludes) {
 # By path rather than by name. There is usually more than one vim on a Windows
 # box and PATH tends to prefer the older.
 #
-# merge.tool is NOT set here, deliberately. A three-way merge is four windows,
-# and two cells cannot hold four panes any better than one cell could hold two.
-# Until that has an answer, whatever was already configured keeps the job.
 $vim = @(
     (Join-Path $env:LOCALAPPDATA 'Programs\Vim\gvim.exe')
     'C:\Program Files\Vim\vim*\gvim.exe'
@@ -137,7 +134,25 @@ if ($vim) {
     & git config --global diff.tool gvimdiff
     & git config --global difftool.gvimdiff.path $vim
     & git config --global difftool.prompt false
-    Write-Output "git difftool: $vim"
+
+    # A merge laid out as a diamond: base across the top, ours and theirs side
+    # by side beneath it, the result at the bottom.
+    #
+    # Base is off the comparison axis deliberately. Ours and theirs are the two
+    # things being compared, and you cannot compare two things with a third
+    # between them - which is what every tool that puts base in the middle
+    # does. Base is a reference, so it gets a glance.
+    & git config --global merge.tool gvimdiff
+    & git config --global mergetool.gvimdiff.path $vim
+    & git config --global mergetool.vimdiff.layout 'BASE / LOCAL,REMOTE / MERGED'
+    & git config --global mergetool.prompt false
+
+    # Ask whether the merge worked rather than inferring it from the editor
+    # closing. With this true - which is the common setting - quitting the tool
+    # marks the file resolved whether or not anything was resolved, so a
+    # conflict you opened, looked at and closed is silently gone.
+    & git config --global mergetool.trustExitCode false
+    Write-Output "git difftool and mergetool: $vim"
 } else {
     Write-Warning 'no gvim found - leaving git diff.tool alone'
 }
