@@ -142,6 +142,10 @@ function! GlucDiffEnter() abort
     "you cannot compare them with a third between them, which is what every
     "tool that puts base in the middle does. Two cells wide, two tall.
     let l:merging = winnr('$') >= 4
+    if l:merging
+        let l:base   = win_getid(1)
+        let l:result = win_getid(4)
+    endif
     if exists("*GlucBand")
         call GlucBand(l:merging ? "2x2" : "2x1")
     endif
@@ -160,6 +164,10 @@ function! GlucDiffEnter() abort
         1wincmd w
         resize 8
     endif
+    if l:merging
+        call GlucDiffDiamond([l:base, l:result])
+    endif
+
     call GlucDiffMark()
 
     "nothing written in the strip. git names these sample_BASE_1436.py and puts
@@ -169,6 +177,37 @@ function! GlucDiffEnter() abort
 
     "the result is where you work, so that is where the cursor starts
     if l:merging | 4wincmd w | else | wincmd t | endif
+endfunction
+
+"An empty window, so the row above and the row below can be inset. Vim cannot
+"centre a buffer - a stacked window spans the full width - so the only way to
+"pull one toward the middle is to put something either side of it.
+function! GlucDiffPad() abort
+    leftabove vnew
+    setlocal buftype=nofile bufhidden=wipe nobuflisted noswapfile
+    setlocal nonumber norelativenumber signcolumn=no nocursorline nowrap
+    setlocal statusline=\ 
+    return win_getid()
+endfunction
+
+"base and result inset toward the middle, so the four panes read as a diamond
+"rather than as three stacks flush against the left edge
+function! GlucDiffDiamond(rows) abort
+    let l:wide = &columns * 3 / 5
+    let l:pad  = (&columns - l:wide) / 2
+    for l:id in a:rows
+        call win_gotoid(l:id)
+        let l:left = GlucDiffPad()
+        call win_gotoid(l:id)
+        rightbelow vnew
+        setlocal buftype=nofile bufhidden=wipe nobuflisted noswapfile
+        setlocal nonumber norelativenumber signcolumn=no nocursorline nowrap
+        setlocal statusline=\ 
+        call win_gotoid(l:left)
+        execute 'vertical resize ' . l:pad
+        call win_gotoid(l:id)
+        execute 'vertical resize ' . l:wide
+    endfor
 endfunction
 
 function! GlucDiffMark() abort
