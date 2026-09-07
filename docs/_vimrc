@@ -57,7 +57,9 @@ endif
 "a diff gets two cells - one cannot hold two panes of real code
 augroup GlucDiff
     autocmd!
-    autocmd VimEnter * if &diff && exists("*GlucBand") | call GlucBand("2x1") | endif
+    "wincmd = because widening after the split leaves the extra columns
+    "in one window instead of shared
+    autocmd VimEnter * if &diff && exists("*GlucBand") | call GlucBand("2x1") | wincmd = | endif
 augroup END
 
 set diffopt=internal,filler,closeoff
