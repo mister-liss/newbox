@@ -1,4 +1,10 @@
 ﻿#Requires AutoHotkey v2.0
+; Like the three forwarders, and for the same reason with a sharper edge: this
+; one registers hotkeys. Two instances means two handlers for Win+T, and the
+; build kills the host with Stop-Process rather than asking it to stop, so the
+; supervisor never gets to clean up and every rebuild left another copy behind.
+; Seven were running before this line existed.
+#SingleInstance Force
 
 #Include gluc-http.ahk
 
