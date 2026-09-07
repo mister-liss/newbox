@@ -66,6 +66,9 @@ set diffopt=internal,filler,closeoff
 silent! set diffopt+=algorithm:histogram
 silent! set diffopt+=indent-heuristic
 silent! set diffopt+=linematch:60
+"marks the changed characters, not the whole line - 9.2 defaults to it and
+"setting diffopt wholesale was throwing it away
+silent! set diffopt+=inline:char
 set fillchars+=diff:/
 
 "changed span is loud on purpose: brightness and weight, not another pastel
