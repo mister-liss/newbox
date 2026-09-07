@@ -111,6 +111,37 @@ if ($LASTEXITCODE -eq 0 -and $excludes) {
     Write-Warning "core.excludesFile is set to $excludes, so git reads that instead of $ignore"
 }
 
+# git's diff tool.
+#
+# gvimdiff, because vim is already the editor and the diff configuration is vim
+# configuration - the two-cell band, the near-monochrome scheme inside a diff,
+# and marking that changes the glyphs rather than putting a block behind them.
+# A block gives one line two grounds and then the line stops reading as a line,
+# which is what every tool tried before this got wrong.
+#
+# By path rather than by name. There is usually more than one vim on a Windows
+# box and PATH tends to prefer the older.
+#
+# merge.tool is NOT set here, deliberately. A three-way merge is four windows,
+# and two cells cannot hold four panes any better than one cell could hold two.
+# Until that has an answer, whatever was already configured keeps the job.
+$vim = @(
+    (Join-Path $env:LOCALAPPDATA 'Programs\Vim\gvim.exe')
+    'C:\Program Files\Vim\vim*\gvim.exe'
+    'C:\Program Files (x86)\Vim\vim*\gvim.exe'
+) | ForEach-Object { Get-ChildItem $_ -EA SilentlyContinue } |
+    Sort-Object { try { [version]$_.VersionInfo.FileVersion } catch { [version]'0.0' } } -Descending |
+    Select-Object -First 1 -ExpandProperty FullName
+
+if ($vim) {
+    & git config --global diff.tool gvimdiff
+    & git config --global difftool.gvimdiff.path $vim
+    & git config --global difftool.prompt false
+    Write-Output "git difftool: $vim"
+} else {
+    Write-Warning 'no gvim found - leaving git diff.tool alone'
+}
+
 # A contrast theme rather than an ordinary dark one. Dark mode is a suggestion
 # apps may ignore; a contrast theme makes them defer to this palette, which is
 # what guarantees legibility and visible window edges.
