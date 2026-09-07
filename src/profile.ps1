@@ -57,7 +57,13 @@ function global:prompt {
 
     $branch = Get-Branch $cwd
     $line = if ($branch) { "$short  ($branch)" } else { $short }
-    $Host.UI.RawUI.WindowTitle = $line
+
+    # The folder alone in the title, not the whole line. The title is at the top
+    # of the window and the prompt is at the bottom, so putting the state up
+    # there was writing it in the one place you are not looking - which is why
+    # it moved down here. What the title is still good for is telling two
+    # windows apart in alt-tab, and a folder name does that.
+    $Host.UI.RawUI.WindowTitle = if ($cwd -eq $HOME) { '~' } else { Split-Path $cwd -Leaf }
 
     # On the way out, only the prompt itself.
     if ($global:PromptIsLeaving) { return '> ' }
