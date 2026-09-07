@@ -60,7 +60,12 @@ augroup GlucDiff
     autocmd VimEnter * if &diff && exists("*GlucBand") | call GlucBand("2x1") | endif
 augroup END
 
-set diffopt=internal,filler,closeoff,algorithm:histogram,indent-heuristic,linematch:60
+set diffopt=internal,filler,closeoff
+"added one at a time: an old vim rejects the whole string over one value it
+"does not know, and linematch needs 9.0.1000
+silent! set diffopt+=algorithm:histogram
+silent! set diffopt+=indent-heuristic
+silent! set diffopt+=linematch:60
 set fillchars+=diff:/
 
 "changed span is loud on purpose: brightness and weight, not another pastel

@@ -5,11 +5,21 @@ Add-Type -AssemblyName System.Windows.Forms
 $BandWidthInches  = 8.3
 $BandHeightInches = 5.1
 
-$gvim = (Get-Command gvim -EA SilentlyContinue).Source
-if (-not $gvim) {
-    $gvim = Get-ChildItem 'C:\Program Files*\Vim\vim*\gvim.exe' -EA SilentlyContinue |
-            Sort-Object FullName -Descending | Select-Object -First 1 -ExpandProperty FullName
-}
+# The newest gvim, not the first on PATH.
+#
+# Two installs is the normal state here: winget puts 9.2 under LOCALAPPDATA and
+# an older MSI left 9.0 in Program Files (x86), and PATH prefers the stale one.
+# Searching only Program Files finds the old one and never the new. The visible
+# symptom was diff options the 9.0 build rejects; the quiet one is every file
+# association pointing at an editor two years older than the one installed.
+$gvim = @(
+    (Join-Path $env:LOCALAPPDATA 'Programs\Vim\gvim.exe')
+    'C:\Program Files\Vim\vim*\gvim.exe'
+    'C:\Program Files (x86)\Vim\vim*\gvim.exe'
+) | ForEach-Object { Get-ChildItem $_ -EA SilentlyContinue } |
+    Sort-Object { try { [version]$_.VersionInfo.FileVersion } catch { [version]'0.0' } } -Descending |
+    Select-Object -First 1 -ExpandProperty FullName
+if (-not $gvim) { $gvim = (Get-Command gvim -EA SilentlyContinue).Source }
 if (-not $gvim) { throw 'gvim not found' }
 
 $probe  = [System.IO.Path]::GetTempFileName()
