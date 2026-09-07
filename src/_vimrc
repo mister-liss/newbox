@@ -93,7 +93,9 @@ silent! set diffopt+=linematch:60
 "one span per changed line. char-level marking fragments a change into a
 "handful of tiny blocks, which is harder to read than one
 silent! set diffopt+=inline:simple
-set fillchars+=diff:/
+"nothing in the filler. the DiffDelete ground already says there is no line
+"here, and hatching it as well is decoration on top of a signal
+let &fillchars = 'vert:|,fold:-,eob:~,diff: '
 
 "keep the caret in the middle half, both axes
 set sidescroll=1
