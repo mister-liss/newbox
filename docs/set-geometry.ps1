@@ -61,10 +61,39 @@ $lines = [math]::Max(5,  [math]::Floor($targetH / $cellH))
 $x = $waX + [math]::Floor(($waW - $cols * $cellW) / 2)
 $y = $waY + [math]::Floor(($waH - $lines * $cellH) / 2)
 
+# The same band, in multiples. One cell is a window you read; a diff wants two
+# side by side and there is no width to spare inside one, which is the whole
+# reason every diff tool tried so far failed the same way. Emitted rather than
+# computed in vim, because the cell size comes from the display's physical
+# dimensions and vim cannot see those.
+$bands = [ordered]@{}
+foreach ($w in 1, 2, 3) {
+    foreach ($h in 1, 2) {
+        $bc = [math]::Max(20, [math]::Floor($w * $targetW / $cellW))
+        $bl = [math]::Max(5,  [math]::Floor($h * $targetH / $cellH))
+        if ($bc -gt $maxCols)  { $bc = $maxCols }
+        if ($bl -gt $maxLines) { $bl = $maxLines }
+        $bx = $waX + [math]::Floor(($waW - $bc * $cellW) / 2)
+        $by = $waY + [math]::Floor(($waH - $bl * $cellH) / 2)
+        $bands["${w}x${h}"] = "'${w}x${h}': {'cols': $bc, 'lines': $bl, 'x': $bx, 'y': $by}"
+    }
+}
+
 $dir = Join-Path $env:USERPROFILE 'vimfiles'
 New-Item -ItemType Directory -Force -Path $dir | Out-Null
 $out = Join-Path $dir 'geometry.vim'
-@("set lines=$lines", "set columns=$cols", "winpos $x $y") | Set-Content -Path $out -Encoding ASCII
+@(
+    "let g:gluc_bands = {" + ($bands.Values -join ', ') + "}"
+    ""
+    "function! GlucBand(size) abort"
+    "    let b = get(g:gluc_bands, a:size, g:gluc_bands['1x1'])"
+    "    execute 'set lines=' . b.lines"
+    "    execute 'set columns=' . b.cols"
+    "    execute 'winpos ' . b.x . ' ' . b.y"
+    "endfunction"
+    ""
+    "call GlucBand('1x1')"
+) | Set-Content -Path $out -Encoding ASCII
 
 Write-Output "work area ${waW}x${waH} physical, max cells ${maxCols}x${maxLines}, $how"
 Write-Output "target ${BandWidthInches}x${BandHeightInches} in = $([math]::Round($targetW))x$([math]::Round($targetH)) px"
