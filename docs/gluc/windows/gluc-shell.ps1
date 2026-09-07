@@ -3,21 +3,22 @@
 #
 # Dot-source from $PROFILE:  . "$env:LOCALAPPDATA\gluc\gluc-shell.ps1"
 #
-# Why a keystroke matters here and nowhere else: a focus event can only name
-# the window, and one Windows Terminal process owns every window and every
-# shell inside them. Nothing observable connects a shell to the window showing
-# it - that mapping lives only inside the terminal's own memory. So the join is
-# made on time instead: only one window is focused, and if a shell reports
-# activity while a terminal window is in front, that shell is the one in it.
+# The hard part, and how it is solved: a focus event can only name the window,
+# and one Windows Terminal process owns every window and every shell inside
+# them. Nothing observable connects a shell to the window showing it - that
+# mapping lives only inside the terminal's own memory.
 #
-# That is why the report carries the ancestor - the nearest process up the tree
-# that owns a top-level window. A focus event names that process; this names it
-# too, and says what is running inside it.
+# So the shell says so itself, in the window title, in characters that render
+# as nothing. See the marker below. That is identity rather than inference,
+# and it replaced a join made on TIME - the shell you last typed in taken to be
+# the one in front - which was right most of the time and quietly wrong the
+# rest.
 #
-# The cost is a known gap: focus a terminal and never type, and gluc still
-# believes the last shell you typed in. It corrects on the first keypress.
-# If PSReadLine ever adopts virtual terminal input, the terminal itself will
-# report focus (DECSET 1004) and this becomes unnecessary - see todo.md.
+# The report still carries the ancestor - the nearest process up the tree that
+# owns a top-level window - because it is what matches when no marker is
+# present: a shell that has not reached a prompt, or one whose title has been
+# taken over by vim or an agent CLI. Those report themselves or they do not;
+# this does not pretend to speak for them.
 
 $script:GlucEndpoint = $null
 $script:GlucLastReport = [datetime]::MinValue
@@ -104,47 +105,86 @@ function Update-GlucLocation {
     if ($PWD.Path -ne $script:GlucLastPath) { Send-GlucEvent 'select' }
 }
 
+# The marker: this shell's pid, written into the window title in characters
+# that render as nothing.
+#
+# It is the answer to the only question focus cannot answer. One
+# WindowsTerminal.exe owns every window, so a focus event names the terminal
+# and never the shell inside it, and nothing observable connects the two -
+# that mapping lives in the terminal's own memory. Before this, gluc joined
+# them on TIME: the shell you last typed in was taken to be the one in front.
+# Usually right, quietly wrong whenever you clicked a window and read it
+# without typing.
+#
+# The title is the one channel that carries from a shell to something the
+# focus forwarder can read. Zero-width characters survive it intact - measured
+# against GetWindowText, non-ASCII and all - so the marker costs nothing
+# visible.
+#
+# Binary rather than digits, because there are only two invisible characters
+# worth trusting. U+2060 delimits, U+200B is 0 and U+200C is 1, and the pid is
+# 24 bits, which covers every Windows pid.
+$global:GlucMark = $(
+    $bits = [Convert]::ToString($PID, 2).PadLeft(24, '0')
+    [char]0x2060 + -join ($bits.ToCharArray() | ForEach-Object {
+        if ($_ -eq '1') { [char]0x200C } else { [char]0x200B }
+    }) + [char]0x2060
+)
+
+# Stamped on every prompt, and that is the point rather than an inefficiency.
+# The string is built once - a pid does not change - and the write is one
+# concatenation onto a title something is setting anyway.
+#
+# It has to repeat because anything that takes over the terminal sets its own
+# title: vim, a pager, an agent CLI. Those are not gluc's business - they
+# report themselves, or they do not - but when one exits, the shell is plainly
+# a shell again, and a marker written only at startup would have been gone for
+# good. Re-stamping makes it self-repairing.
+function Add-GlucMark {
+    try {
+        $title = $Host.UI.RawUI.WindowTitle
+        if ($title -notlike "*$($global:GlucMark)*") {
+            $Host.UI.RawUI.WindowTitle = $title + $global:GlucMark
+        }
+    } catch { }
+}
+
 # And wire it, rather than leaving it for the profile to remember. A cd is not
 # a keystroke, so without this the only reports are the idle-to-active ones -
 # change directory, alt-tab away and back, and gluc still believes the place
 # you left.
 #
 # Chains whatever prompt was already defined instead of replacing it, and only
-# once: this file is dot-sourced from more than one profile on some machines,
-# and a wrapper that wrapped itself would recurse until the stack ran out.
-if (-not $global:GlucPromptWrapped) {
-    $global:GlucPromptWrapped = $true
+# once: this file is dot-sourced from more than one profile on some machines.
+#
+# The guard reads the prompt itself rather than a flag beside it. A flag can be
+# wrong - cleared by hand, or by something restoring a session - and a wrapper
+# that wraps itself captures itself as the inner prompt and recurses until the
+# stack runs out. Asking the function whether it is already ours cannot drift
+# from the truth, because it IS the truth.
+#
+# The inner prompt runs first because it is the one that sets the title; the
+# mark goes on afterwards, onto whatever it wrote.
+if ($function:prompt -notmatch 'gluc-wrapped-prompt') {
     $global:GlucInnerPrompt = $function:prompt
     function global:prompt {
+        # gluc-wrapped-prompt - the guard above looks for this line.
         Update-GlucLocation
-        if ($global:GlucInnerPrompt) { & $global:GlucInnerPrompt } else { "PS $($PWD.Path)> " }
+        $text = if ($global:GlucInnerPrompt) { & $global:GlucInnerPrompt } else { "PS $($PWD.Path)> " }
+        Add-GlucMark
+        $text
     }
 }
 
-# On a keystroke: report only the idle-to-active transition, never the typing
-# itself. Sending on every character would be a sample rather than a change,
-# and would fill the log with one event per keypress.
-function Test-GlucActive {
-    if (((Get-Date) - $script:GlucLastReport).TotalSeconds -ge $script:GlucIdleSeconds) {
-        Send-GlucEvent 'select'
-    }
-}
-
-# PSReadLine is loaded by the host when it starts the prompt loop, which
-# happens after $PROFILE runs - so testing whether it is already loaded is
-# false in exactly the interactive case this exists for, and every handler was
-# silently skipped. Import it, then check the command really is there.
-Import-Module PSReadLine -ErrorAction SilentlyContinue
-if (Get-Command Set-PSReadLineKeyHandler -ErrorAction SilentlyContinue) {
-    $keys = @()
-    foreach ($c in [char[]]'abcdefghijklmnopqrstuvwxyz0123456789') { $keys += "$c" }
-    $keys += 'Spacebar'
-
-    foreach ($k in $keys) {
-        Set-PSReadLineKeyHandler -Chord $k -ScriptBlock {
-            param($key, $arg)
-            Test-GlucActive
-            [Microsoft.PowerShell.PSConsoleReadLine]::SelfInsert($key, $arg)
-        }
-    }
-}
+# The keystroke handler is gone, and its absence is the whole point of the
+# marker above.
+#
+# It existed to make the timing join work: report on the idle-to-active
+# transition so that "the shell you last typed in" was current enough to stand
+# in for "the shell in the focused window". That guess is not needed now - the
+# title says which shell it is - and what it cost was a PSReadLine handler on
+# every letter, digit and space in the language, each one re-implementing
+# SelfInsert.
+#
+# What remains is the prompt: it reports where this shell is, and stamps the
+# mark that says which shell it is.

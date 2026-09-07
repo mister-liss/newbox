@@ -150,9 +150,47 @@ GlucWindowJson(hwnd)
     return '{"hwnd":' hwnd '}'
 }
 
-GlucWindowProcessJson(hwnd, pid)
+GlucWindowProcessJson(hwnd, pid, shell := 0)
 {
+    ; `shell` is the process running INSIDE this window, when the window says
+    ; so. One WindowsTerminal.exe owns every terminal window, so `pid` names
+    ; the terminal and answers nothing on its own - this is the part that says
+    ; which shell you are actually looking at.
+    if (shell)
+        return '{"hwnd":' hwnd ',"pid":' pid ',"shell":' shell '}'
     return '{"hwnd":' hwnd ',"pid":' pid '}'
+}
+
+; The shell a window says it is showing, or 0.
+;
+; A shell writes its own pid into the window title in characters that render as
+; nothing - U+2060 delimits, U+200B is 0 and U+200C is 1, 24 bits. See
+; gluc-shell.ps1 for the other half.
+;
+; Everything about this is deliberately unforgiving: a mark that is truncated,
+; padded, or made of any other character is not a mark. It is a claim about
+; identity, and a half-read one is worse than none.
+GlucShellFromTitle(hwnd)
+{
+    title := ""
+    try
+        title := WinGetTitle("ahk_id " hwnd)
+    catch
+        return 0
+
+    start := InStr(title, Chr(0x2060))
+    if (!start || StrLen(title) < start + 24)
+        return 0
+
+    shell := 0
+    Loop 24
+    {
+        c := Ord(SubStr(title, start + A_Index, 1))
+        if (c != 0x200B && c != 0x200C)
+            return 0
+        shell := shell * 2 + (c = 0x200C ? 1 : 0)
+    }
+    return shell
 }
 
 GlucJsonEscape(s)

@@ -93,9 +93,14 @@ GlucOnForeground(hook, ev, hwnd, idObject, idChild, idThread, time)
     catch
         name := ""
 
-    reply := GlucSend("event", GlucEventJson("focus", "windows", GlucWindowProcessJson(hwnd, pid)))
+    ; Ask the window which shell it is showing. Only a shell at a prompt
+    ; answers; a window running vim or an agent CLI carries that program's
+    ; title and says nothing, which is correct - those report themselves.
+    shell := GlucShellFromTitle(hwnd)
+
+    reply := GlucSend("event", GlucEventJson("focus", "windows", GlucWindowProcessJson(hwnd, pid, shell)))
     if (GlucLastError = "")
-        A_IconTip := "gluc focus`n" name " (" pid ")"
+        A_IconTip := "gluc focus`n" name " (" pid (shell ? ", shell " shell : "") ")"
     else
         A_IconTip := "gluc focus`nhost not reachable`n" GlucLastError
 }
