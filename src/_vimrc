@@ -61,6 +61,31 @@ function! GlucDiffLook() abort
     "things in the same channel on the same pixels
     silent! colorscheme quiet
     call GlucDiffColors()
+    "the scheme's own ground, left alone. Lifting it off black washed the whole
+    "thing out: the rest of the palette is chosen against near-black, so
+    "raising only the background lowers every contrast on screen at once.
+    highlight SignColumn   guibg=NONE
+    highlight LineNr       guibg=NONE
+
+    "no bars. vim needs a strip between stacked windows, so it gets one with
+    "nothing written on it - a gap rather than a label. Which pane is which is
+    "said by where it is
+    "the scheme's own background exactly, so the strip is a gap and not a bar.
+    "quiet's CursorLine is #303030 and the strips were #26262c - four bands of
+    "the same weight as the one band that is supposed to say where you are.
+    "The cursor line should be the brightest ground on screen and the only one.
+    highlight StatusLine   guibg=#000000 guifg=#3f3f3f gui=NONE
+    highlight StatusLineNC guibg=#000000 guifg=#2c2c2c gui=NONE
+    highlight VertSplit    guibg=#000000 guifg=#2c2c2c gui=NONE
+
+    "a pinstripe rather than a band. the strip is a whole row whatever we do,
+    "so it gets filled with a rule: a line divides without weighing anything,
+    "where a filled bar competes with the cursor line for the same job
+    let &fillchars = 'vert:' . nr2char(0x2502)
+        \ . ',fold:-,eob:~'
+        \ . ',diff:' . nr2char(0x2508)
+        \ . ',stl:' . nr2char(0x2500)
+        \ . ',stlnc:' . nr2char(0x2500)
 endfunction
 
 "the changed span is bright TEXT on a dark ground, not a lit block - a white
@@ -111,10 +136,39 @@ function! GlucDiffEnter() abort
     if !&diff | return | endif
     call GlucDiffLook()
     noautocmd windo setlocal signcolumn=yes
-    if exists("*GlucBand") | call GlucBand("2x1") | endif
+    "a merge is laid out as a diamond: base on top, ours and theirs side by
+    "side beneath it, the result at the bottom. Base is off the comparison
+    "axis on purpose - ours and theirs are the two things being compared and
+    "you cannot compare them with a third between them, which is what every
+    "tool that puts base in the middle does. Two cells wide, two tall.
+    let l:merging = winnr('$') >= 4
+    if exists("*GlucBand")
+        call GlucBand(l:merging ? "2x2" : "2x1")
+    endif
     wincmd =
+    if l:merging
+        "the result leaves the diff group. it carries conflict markers, so it is
+        "half again as long as the three it is compared with, and vim pads the
+        "short buffers to align against the long one - which lands differently
+        "in each and pulls the same line onto different rows in ours and
+        "theirs. Those three are the comparison and they align exactly once the
+        "odd one out is not in it. The cost is :diffget, which markers replace.
+        4wincmd w
+        diffoff
+        "base is a reference, not a candidate. it gets a glance, not a third
+        "of the screen - and this has to come after the equalise
+        1wincmd w
+        resize 8
+    endif
     call GlucDiffMark()
-    wincmd t
+
+    "nothing written in the strip. git names these sample_BASE_1436.py and puts
+    "a ruler beside it, and none of it is worth reading off a bar
+    set noruler
+    noautocmd windo let &l:statusline = ' '
+
+    "the result is where you work, so that is where the cursor starts
+    if l:merging | 4wincmd w | else | wincmd t | endif
 endfunction
 
 function! GlucDiffMark() abort
