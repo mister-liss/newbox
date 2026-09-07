@@ -66,22 +66,72 @@ endfunction
 "the changed span is bright TEXT on a dark ground, not a lit block - a white
 "rectangle on a dark scheme is glare, which is the thing dark schemes avoid
 function! GlucDiffColors() abort
-    highlight DiffAdd    guibg=#14361a guifg=NONE    gui=NONE
-    highlight DiffDelete guibg=#3a1618 guifg=#7a5254 gui=NONE
-    highlight DiffChange guibg=#161d29 guifg=NONE    gui=NONE
+    "no blocks anywhere - a block is what stops a line reading as a line. Which
+    "lines changed is said in the gutter instead, where nothing is competing.
+    "
+    "Note a foreground alone cannot do this job: vim combines diff highlighting
+    "with syntax and syntax wins the foreground, so DiffAdd guifg is invisible
+    "on any line syntax has coloured.
+    highlight DiffAdd    guibg=NONE guifg=NONE gui=NONE
+    highlight DiffDelete guibg=NONE guifg=#6d4a4c gui=NONE
+    highlight DiffChange guibg=NONE guifg=NONE gui=NONE
     "same background as the line it sits in, deliberately. a block around the
     "changed span gives one line two grounds, and then the line stops reading
     "as a line - the change shows and the sentence does not
-    highlight DiffText   guibg=#161d29 guifg=#ffb454 gui=bold,underline
+    highlight DiffText   guibg=NONE guifg=#ffb454 gui=bold,underline
 endfunction
 call GlucDiffColors()
+
+sign define GlucAdd    text=+  texthl=GlucSignAdd
+sign define GlucChange text=~  texthl=GlucSignChange
+highlight GlucSignAdd    guifg=#7fd08a guibg=NONE gui=bold
+highlight GlucSignChange guifg=#ffb454 guibg=NONE gui=bold
+
+"which lines differ, marked outside the text. asks vim what it decided rather
+"than diffing again - diff_hlID is the same answer the highlighting uses
+function! GlucDiffSigns() abort
+    if !&diff | return | endif
+    let b = bufnr()
+    execute 'sign unplace * group=glucdiff buffer=' . b
+    for l in range(1, line('$'))
+        let n = synIDattr(diff_hlID(l, 1), 'name')
+        if n ==# 'DiffAdd'
+            execute 'sign place ' . l . ' group=glucdiff line=' . l . ' name=GlucAdd buffer=' . b
+        elseif n ==# 'DiffChange' || n ==# 'DiffText'
+            execute 'sign place ' . l . ' group=glucdiff line=' . l . ' name=GlucChange buffer=' . b
+        endif
+    endfor
+endfunction
+
+"Order matters, and getting it wrong leaves the window wrong: the sign column
+"has to exist before the panes are balanced, or it is taken out of one of them.
+"noautocmd around the walk because placing signs raises DiffUpdated, which
+"walks again.
+function! GlucDiffEnter() abort
+    if !&diff | return | endif
+    call GlucDiffLook()
+    noautocmd windo setlocal signcolumn=yes
+    if exists("*GlucBand") | call GlucBand("2x1") | endif
+    wincmd =
+    call GlucDiffMark()
+    wincmd t
+endfunction
+
+function! GlucDiffMark() abort
+    if !&diff | return | endif
+    let w = winnr()
+    noautocmd windo call GlucDiffSigns()
+    noautocmd execute w . 'wincmd w'
+endfunction
 
 augroup GlucDiff
     autocmd!
     "wincmd = because widening after the split leaves the extra columns
     "in one window instead of shared
-    autocmd VimEnter * if &diff && exists("*GlucBand") | call GlucBand("2x1") | wincmd = | endif
-    autocmd VimEnter * if &diff | call GlucDiffLook() | endif
+    autocmd VimEnter    * call GlucDiffEnter()
+    "deferred by a tick: walking windows inside DiffUpdated is E788, because
+    "the event forbids changing buffer. a timer runs outside it
+    autocmd DiffUpdated * call timer_start(10, {-> GlucDiffMark()})
 augroup END
 
 set diffopt=internal,filler,closeoff
@@ -93,9 +143,9 @@ silent! set diffopt+=linematch:60
 "one span per changed line. char-level marking fragments a change into a
 "handful of tiny blocks, which is harder to read than one
 silent! set diffopt+=inline:simple
-"nothing in the filler. the DiffDelete ground already says there is no line
-"here, and hatching it as well is decoration on top of a signal
-let &fillchars = 'vert:|,fold:-,eob:~,diff: '
+"a light dashed rule in the filler. slashes read as content, blank reads as
+"nothing at all, and this reads as a gap. nr2char so the file stays ASCII
+let &fillchars = 'vert:|,fold:-,eob:~,diff:' . nr2char(0x2508)
 
 "keep the caret in the middle half, both axes
 set sidescroll=1
