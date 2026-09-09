@@ -91,18 +91,29 @@ $dest = Join-Path $dir 'Daily.ahk'
 #
 # One marked line, added only if absent, so re-running setup does not stack
 # them and removing it is obvious.
+# ONE profile, and only if no profile already has it.
+#
+# This used to add the line to CurrentUserAllHosts and CurrentUserCurrentHost
+# both, which sources the plugin twice in every shell. Harmless while the
+# plugin only defines functions - and not harmless on 2026-09-08, when it also
+# wrapped the prompt: the second pass captured a prompt that had itself
+# captured the first pass's wrapper, and the two chains formed a cycle that
+# hung every new terminal. The wrapper is gone, but sourcing anything twice
+# for no reason is how that became possible.
 $profileLine = '. "$env:LOCALAPPDATA\gluc\gluc-shell.ps1"   # gluc'
-foreach ($profilePath in @($PROFILE.CurrentUserAllHosts, $PROFILE.CurrentUserCurrentHost) | Select-Object -Unique) {
-    if (-not $profilePath) { continue }
+
+$already = @($PROFILE.CurrentUserAllHosts, $PROFILE.CurrentUserCurrentHost) |
+    Where-Object { $_ -and (Test-Path $_) } |
+    Where-Object { (Get-Content $_ -Raw) -match [regex]::Escape('gluc-shell.ps1') }
+
+if ($already) {
+    Write-Output ("already in " + (($already | ForEach-Object { Split-Path $_ -Leaf }) -join ', '))
+} else {
+    $profilePath = $PROFILE.CurrentUserAllHosts
     $parent = Split-Path $profilePath -Parent
     if (-not (Test-Path $parent)) { New-Item -ItemType Directory -Force -Path $parent | Out-Null }
-    $existing = if (Test-Path $profilePath) { Get-Content $profilePath -Raw } else { '' }
-    if ($existing -notmatch [regex]::Escape('gluc-shell.ps1')) {
-        Add-Content -Path $profilePath -Value $profileLine
-        Write-Output "added gluc to $profilePath"
-    } else {
-        Write-Output "already in $profilePath"
-    }
+    Add-Content -Path $profilePath -Value $profileLine
+    Write-Output "added gluc to $profilePath"
 }
 
 # The vim reporter, installed and hooked up the same way the shell plugin is:
