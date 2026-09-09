@@ -58,7 +58,7 @@ New-Item -ItemType Directory -Force -Path $dir | Out-Null
 # gluc-http.ahk, and a missing include stops AutoHotkey loading at all.
 $scripts = 'Daily.ahk', 'gluc-http.ahk',
            'gluc-focus-forwarder.ahk', 'gluc-explorer-forwarder.ahk',
-           'gluc-terminal-forwarder.ahk', 'gluc-shell.ps1'
+           'gluc-shell.ps1'
 foreach ($script in $scripts) {
     $to = Join-Path $dir $script
     Get-Payload $script $to
