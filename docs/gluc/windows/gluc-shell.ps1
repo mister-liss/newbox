@@ -21,14 +21,9 @@
 # this does not pretend to speak for them.
 
 $script:GlucEndpoint = $null
-$script:GlucLastReport = [datetime]::MinValue
 $script:GlucLastPath = ''
 $script:GlucAncestor = 0
 $script:GlucHttp = $null
-
-# How long a shell must be quiet before a keystroke counts as becoming active
-# again. Typing is not news; going from idle to typing is.
-$script:GlucIdleSeconds = 4
 
 function Get-GlucAncestor {
     # The nearest ancestor owning a top-level window - what a focus event will
@@ -110,7 +105,6 @@ function Send-GlucEvent {
         $script:GlucEndpoint = $null
     }
 
-    $script:GlucLastReport = Get-Date
     $script:GlucLastPath = $PWD.Path
 }
 
