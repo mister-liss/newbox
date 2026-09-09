@@ -34,17 +34,27 @@ function Get-GlucAncestor {
     # The nearest ancestor owning a top-level window - what a focus event will
     # actually name. Walks rather than assuming the parent, because a shell can
     # sit several levels down.
+    #
+    # ONE query, then walk the answer in memory. It used to ask WMI once per
+    # level, up to eight times, and this runs on the first prompt of every shell
+    # you open - so a slow WMI turned every new terminal into a wait. Asking for
+    # every process once and indexing it costs less than two of those calls.
+    $parent = @{}
+    foreach ($p in Get-CimInstance Win32_Process -Property ProcessId, ParentProcessId -EA SilentlyContinue) {
+        $parent[[int]$p.ProcessId] = [int]$p.ParentProcessId
+    }
+    if ($parent.Count -eq 0) { return 0 }
+
     $seen = 0
     $current = $PID
     while ($current -and $seen -lt 8) {
         $seen++
-        $p = Get-CimInstance Win32_Process -Filter "ProcessId=$current" -EA SilentlyContinue
-        if (-not $p) { return 0 }
+        if (-not $parent.ContainsKey($current)) { return 0 }
         if ($current -ne $PID) {
             $proc = Get-Process -Id $current -EA SilentlyContinue
             if ($proc -and $proc.MainWindowHandle -ne 0) { return $current }
         }
-        $current = $p.ParentProcessId
+        $current = $parent[$current]
     }
     return 0
 }
@@ -80,7 +90,14 @@ function Send-GlucEvent {
 
     try {
         if (-not $script:GlucHttp) {
-            $script:GlucHttp = [System.Net.Http.HttpClient]::new()
+            # No proxy, and it is not a detail. The destination is 127.0.0.1,
+            # but .NET still resolves proxy settings for it - and on a managed
+            # box that means WPAD discovery, measured at eighteen seconds a
+            # request here. This runs on the prompt, so that is not a slow
+            # report, it is a shell that will not come back.
+            $handler = [System.Net.Http.HttpClientHandler]::new()
+            $handler.UseProxy = $false
+            $script:GlucHttp = [System.Net.Http.HttpClient]::new($handler)
             $script:GlucHttp.Timeout = [timespan]::FromSeconds(2)
         }
         $content = [System.Net.Http.StringContent]::new($body, [System.Text.Encoding]::UTF8, 'application/json')
@@ -149,32 +166,26 @@ function Add-GlucMark {
     } catch { }
 }
 
-# And wire it, rather than leaving it for the profile to remember. A cd is not
-# a keystroke, so without this the only reports are the idle-to-active ones -
-# change directory, alt-tab away and back, and gluc still believes the place
-# you left.
+# Nothing here wraps the prompt, and that is the fix for a real bug rather
+# than a preference.
 #
-# Chains whatever prompt was already defined instead of replacing it, and only
-# once: this file is dot-sourced from more than one profile on some machines.
+# It used to chain: capture whatever `prompt` was, define a new one, call the
+# old one from inside it. Guarded against being applied twice - first with a
+# flag, then by reading the function's own text for a tag. Both guards passed
+# and it wrapped itself anyway, so the prompt called the prompt about a hundred
+# times a second and a new terminal never came back.
 #
-# The guard reads the prompt itself rather than a flag beside it. A flag can be
-# wrong - cleared by hand, or by something restoring a session - and a wrapper
-# that wraps itself captures itself as the inner prompt and recurses until the
-# stack runs out. Asking the function whether it is already ours cannot drift
-# from the truth, because it IS the truth.
+# The lesson is not that the guard needed to be better. A function that
+# redefines a function it also calls has to be right about a thing it cannot
+# see, every time, in every order. So it does not do that any more: the two
+# things a shell should do on a prompt are plain functions, and whoever owns
+# the prompt calls them.
 #
-# The inner prompt runs first because it is the one that sets the title; the
-# mark goes on afterwards, onto whatever it wrote.
-if ($function:prompt -notmatch 'gluc-wrapped-prompt') {
-    $global:GlucInnerPrompt = $function:prompt
-    function global:prompt {
-        # gluc-wrapped-prompt - the guard above looks for this line.
-        Update-GlucLocation
-        $text = if ($global:GlucInnerPrompt) { & $global:GlucInnerPrompt } else { "PS $($PWD.Path)> " }
-        Add-GlucMark
-        $text
-    }
-}
+#     Update-GlucLocation    report where this shell is, if it moved
+#     Add-GlucMark           stamp this shell's pid into the window title
+#
+# newbox's profile owns the prompt and calls both. If some other profile owns
+# it, it calls both. Nothing has to detect anything.
 
 # The keystroke handler is gone, and its absence is the whole point of the
 # marker above.
