@@ -58,12 +58,21 @@ function global:prompt {
     $branch = Get-Branch $cwd
     $line = if ($branch) { "$short  ($branch)" } else { $short }
 
+    #gluc, if it is installed. Called from here rather than gluc wrapping this
+    #function: something that redefines the prompt and also calls it has to be
+    #right about what it captured, and when it was wrong the prompt called
+    #itself a hundred times a second and the terminal never came back
+    if (Get-Command Update-GlucLocation -EA SilentlyContinue) { Update-GlucLocation }
+
+    if (Get-Command Add-GlucMark -EA SilentlyContinue) { $mark = $true }
+
     # The folder alone in the title, not the whole line. The title is at the top
     # of the window and the prompt is at the bottom, so putting the state up
     # there was writing it in the one place you are not looking - which is why
     # it moved down here. What the title is still good for is telling two
     # windows apart in alt-tab, and a folder name does that.
     $Host.UI.RawUI.WindowTitle = if ($cwd -eq $HOME) { '~' } else { Split-Path $cwd -Leaf }
+    if ($mark) { Add-GlucMark }
 
     # On the way out, only the prompt itself.
     if ($global:PromptIsLeaving) { return '> ' }
