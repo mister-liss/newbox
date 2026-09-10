@@ -160,6 +160,34 @@ function Add-GlucMark {
     } catch { }
 }
 
+# Say so when nothing is calling us.
+#
+# This file only defines functions - it does not touch the prompt, for reasons
+# below - so a profile that sources it and calls nothing gets a plugin that
+# loads, reports nothing and never complains. gluc is its own product and will
+# land in profiles it did not write, so that silence is the normal case rather
+# than the exception, and a line in a README is not where anyone will find it.
+#
+# Read at load rather than waited for: the profile defines its prompt before
+# sourcing this, so by now the prompt either mentions us or it does not. An
+# engine idle event was tried first and fires inconsistently, and a warning
+# that appears sometimes is worse than one that appears always or never.
+#
+# The false positive is a profile that defines its prompt AFTER sourcing this.
+# It says so once, in the shell, with the two lines to paste - which is exactly
+# what someone in that position needs to see anyway.
+if ($function:prompt -and $function:prompt -notmatch 'Update-GlucLocation') {
+    Write-Host ""
+    Write-Host "gluc: the shell plugin is loaded but your prompt does not call it." -ForegroundColor Yellow
+    Write-Host "      Add these two lines to your prompt function:" -ForegroundColor Yellow
+    Write-Host ""
+    Write-Host "        if (Get-Command Update-GlucLocation -EA SilentlyContinue) { Update-GlucLocation }"
+    Write-Host "        if (Get-Command Add-GlucMark -EA SilentlyContinue) { Add-GlucMark }"
+    Write-Host ""
+    Write-Host "      Add-GlucMark goes last - after anything that sets the window title." -ForegroundColor Yellow
+    Write-Host ""
+}
+
 # Nothing here wraps the prompt, and that is the fix for a real bug rather
 # than a preference.
 #

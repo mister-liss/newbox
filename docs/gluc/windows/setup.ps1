@@ -116,6 +116,26 @@ if ($already) {
     Write-Output "added gluc to $profilePath"
 }
 
+# Sourcing the plugin is half the job. It defines functions and touches nothing
+# - deliberately, since wrapping someone else's prompt is what broke every
+# terminal on this machine on 2026-09-08 - so a prompt that does not call it
+# gets a plugin that loads and reports nothing, quietly, forever.
+#
+# Said here as well as in the shell because this is the moment someone is
+# installing gluc into a profile they wrote themselves, and a warning at the
+# next prompt is a warning they will scroll past.
+$wired = @($PROFILE.CurrentUserAllHosts, $PROFILE.CurrentUserCurrentHost) |
+    Where-Object { $_ -and (Test-Path $_) } |
+    Where-Object { (Get-Content $_ -Raw) -match 'Update-GlucLocation' }
+
+if (-not $wired) {
+    Write-Warning 'your prompt does not call the gluc shell plugin - it will report nothing'
+    Write-Output  '  add to your prompt function:'
+    Write-Output  '      if (Get-Command Update-GlucLocation -EA SilentlyContinue) { Update-GlucLocation }'
+    Write-Output  '      if (Get-Command Add-GlucMark -EA SilentlyContinue) { Add-GlucMark }'
+    Write-Output  '  Add-GlucMark goes last, after anything that sets the window title'
+}
+
 # The vim reporter, installed and hooked up the same way the shell plugin is:
 # gluc puts its own file in place and adds one marked line to the file vim
 # already reads. Neither half edits the other's - _vimrc is newbox's, and this
