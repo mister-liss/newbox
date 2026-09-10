@@ -98,7 +98,7 @@ ExplorerPath()
 #HotIf WinActive("ahk_exe WindowsTerminal.exe")
 #t::
 {
-    dir := GlucFocusPath()
+    dir := GlucFocusTarget()
     if (dir != "")
         GlucLaunch("terminal", dir)
     else
@@ -130,16 +130,48 @@ ExplorerPath()
 ; about, and the useful answer then is the last place it did know.
 GlucProject()
 {
-    return GlucFocusField("project")
+    return GlucJsonUnescape(GlucFocusField("project"))
 }
 
 ; Where focus is, rather than which project holds it: the folder a shell is in
 ; or an Explorer window is showing. It is a file when a file has focus, so a
 ; caller that wants a folder takes the parent.
-GlucFocusPath()
+; Where to open something, for the window you are looking at.
+;
+; The newest row that says anything, at whatever resolution that reporter
+; knows. A shell reports a path, so you get the folder you are actually in. A
+; reporter that only knows a project - an agent plugin, say - reports that, and
+; the project is the right answer for it rather than a degraded one. A row that
+; says neither means focus moved somewhere gluc knows nothing about, and the
+; useful answer then is the last place it did know.
+;
+; Read row by row rather than by scanning the whole reply for a field, which is
+; what this used to do: that finds the newest row CARRYING the field, so a
+; window reporting only a project would be skipped over in favour of some older
+; window's path. The answer has to come from one row - the one in front of you.
+GlucFocusTarget()
 {
-    path := GlucFocusField("path")
-    if (path = "" || DirExist(path))
+    reply := GlucSend("query", '{"kinds":["focus-project"],"limit":20}')
+    if (GlucLastError != "" || reply = "")
+        return ""
+
+    pos := 1
+    while (RegExMatch(reply, '\{[^{}]*\}', &row, pos))
+    {
+        pos := row.Pos + row.Len
+        if (RegExMatch(row[0], '"path":"([^"]*)"', &m) && m[1] != "")
+            return GlucFolderOf(GlucJsonUnescape(m[1]))
+        if (RegExMatch(row[0], '"project":"([^"]*)"', &m) && m[1] != "")
+            return GlucJsonUnescape(m[1])
+    }
+    return ""
+}
+
+; A file's folder, a folder as itself. Reporters send whichever they have and
+; should not have to agree on which.
+GlucFolderOf(path)
+{
+    if (DirExist(path))
         return path
     SplitPath path, , &parent
     return parent

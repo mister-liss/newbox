@@ -193,6 +193,21 @@ GlucShellFromTitle(hwnd)
     return shell
 }
 
+; A JSON string value, as itself. The reply escapes a backslash as two, so
+; every Windows path arrives doubled - "S:\\" for S:\ - and consumers were
+; using them raw. Windows tolerates doubled separators, which is why that
+; survived unnoticed in the paths handed to Explorer and to the terminal.
+;
+; The pair of this file's GlucJsonEscape, and it belongs here for the same
+; reason: every consumer of a reply needs it, and none of them should be
+; writing their own.
+GlucJsonUnescape(s)
+{
+    s := StrReplace(s, "\\", "\")
+    s := StrReplace(s, '\"\"', '\"')
+    return s
+}
+
 GlucJsonEscape(s)
 {
     s := StrReplace(s, "\", "\\")

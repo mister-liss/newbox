@@ -154,7 +154,7 @@ if (Test-Path $winget) {
 # %V is the path, spelled the way the shell spells it in a directory verb.
 $programs = Join-Path $env:LOCALAPPDATA 'gluc\programs.json'
 New-Item -ItemType Directory -Force -Path (Split-Path $programs -Parent) | Out-Null
-@{ terminal = '"%LOCALAPPDATA%\\Microsoft\\WindowsApps\\wt.exe" -d "%V"' } |
+@{ terminal = '"%LOCALAPPDATA%\Microsoft\WindowsApps\wt.exe" -d "%V"' } |
     ConvertTo-Json | Set-Content -Path $programs -Encoding UTF8
 Write-Output "wrote $programs"
 
