@@ -20,6 +20,20 @@
 ; script nor gluc names a program.
 GlucLaunch(intent, dir)
 {
+    ; Hand the foreground over before asking, because the host cannot.
+    ;
+    ; Windows grants the right to call SetForegroundWindow to a process that is
+    ; foreground, was started by the one that is, or just handled input. On a
+    ; hotkey that process is this script - which is why the hotkey ran at all -
+    ; and it is not the host. The host starts the terminal, so its own
+    ; AllowSetForegroundWindow call has nothing to give away and the new window
+    ; opens behind whatever you were looking at.
+    ;
+    ; ASFW_ANY releases the lock for whoever asks next, which is the window the
+    ; host is about to create. The same belt and braces as Win+P below, for the
+    ; same reason and one indirection further away.
+    DllCall("AllowSetForegroundWindow", "UInt", 0xFFFFFFFF)
+
     body := '{"intent":"' intent '","path":"' GlucJsonEscape(dir) '"}'
     reply := GlucSend("launch", body)
     if (GlucLastError != "")
