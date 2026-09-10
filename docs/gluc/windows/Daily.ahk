@@ -107,7 +107,14 @@ ExplorerPath()
 #HotIf
 
 ; ---- Win+T anywhere else ---------------------------------------------
-#t::GlucLaunch("terminal", "")
+; Anywhere else means gvim, an agent window, a browser - and gluc knows where
+; those are looking just as well as it knows a terminal. This used to open at
+; the home directory: it passed no path, so the host fell back to the profile,
+; while the answer sat in the store unasked for.
+;
+; Explorer keeps its own branch above because it can be read directly and
+; instantly; everything else goes through what was reported.
+#t::GlucLaunch("terminal", GlucFocusTarget())
 
 #g::GlucSend("recent")
 

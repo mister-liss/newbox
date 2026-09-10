@@ -335,6 +335,20 @@ Set-ItemProperty -Path "$classes\$ProgId\DefaultIcon" -Name '(default)' -Value "
 Set-Verb $ProgId 'open' ('"' + $gvim + '" %2 "%1"')
 Set-Verb $ProgId 'edit' ('"' + $gvim + '" %2 "%1"')
 
+# And the perceived type, which otherwise beats all of the above.
+#
+# Windows classifies most of these extensions as PerceivedType=text, and the
+# machine-wide SystemFileAssociations	ext\shell\edit says NOTEPAD. That wins
+# over a ProgId's own edit verb, so .cs resolved to gluc.gvim, gluc.gvim had a
+# perfectly good edit verb, and Enter in the switcher opened Notepad anyway.
+#
+# .ps1 escaped it only because it happened to carry a UserChoice entry - which
+# cannot be written programmatically, by design, since Windows hashes it.
+#
+# Claiming it under HKCU overrides the machine one for this user and fixes
+# every text-perceived type at once, including Explorer's right-click Edit.
+Set-Verb 'SystemFileAssociations\text' 'edit' ('"' + $gvim + '" %2 "%1"')
+
 # Markdown is the case that makes the point: opening it means reading it
 # rendered, editing it means vim. One ProgId cannot say both, so it gets its
 # own. Falls back to gvim for both verbs when MarkText is not installed.
@@ -368,6 +382,16 @@ foreach ($pair in @($Extensions | ForEach-Object { @{ Ext = $_; Id = $ProgId } }
     New-Item -Path "$classes\$($pair.Ext)\OpenWithProgIds" -Force | Out-Null
     Set-ItemProperty -Path "$classes\$($pair.Ext)\OpenWithProgIds" -Name $pair.Id -Value ([byte[]]@()) -Type None
     Set-ItemProperty -Path "$classes\$($pair.Ext)" -Name '(default)' -Value $pair.Id
+
+    # Say it is text, so it inherits the edit verb claimed above.
+    #
+    # Pointing the extension at a ProgId is not enough on its own: measured on
+    # 2026-09-09, .py and .rs resolved to gluc.gvim, gluc.gvim had a perfectly
+    # good edit verb, and asking the shell for `edit` returned nothing at all.
+    # A perceived type is what makes the type inherit one - and every extension
+    # in these lists is text, which is the whole reason gvim is being pointed
+    # at it.
+    Set-ItemProperty -Path "$classes\$($pair.Ext)" -Name 'PerceivedType' -Value 'text'
 }
 
 Add-Type -Name Shell -Namespace Win32 -MemberDefinition @'
