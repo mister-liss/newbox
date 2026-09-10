@@ -28,6 +28,11 @@ GlucLaunch(intent, dir)
         TrayTip("gluc", SubStr(reply, 2))
 }
 
+XButton1::
+{
+    Send("#-")
+}
+
 XButton2::#=
 
 ; ---- Win+T in Explorer: a terminal on that folder --------------------
