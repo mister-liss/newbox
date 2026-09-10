@@ -8,29 +8,24 @@
 
 #Include gluc-http.ahk
 
-WtPath() => EnvGet("LOCALAPPDATA") "\Microsoft\WindowsApps\wt.exe"
-
-; A directory as a quoted command-line argument.
+; Ask the host to start something. This script never launches a program.
 ;
-; Trailing backslashes have to be doubled. Windows parses \" as an escaped
-; quote, so -d "S:\" arrives as S:" and the terminal refuses to start with
-;     Could not access starting directory "S:"
-; A drive root is the ordinary way to hit it - S:\ is a perfectly good folder
-; to have focused, and it is the only kind of path that always ends in one.
-QuoteDir(dir)
+; It is elevated - it has to be, to send input while an elevated window has
+; focus - and a process launches its children with its own token, so anything
+; it starts is an administrator process. Win+T was handing out administrator
+; terminals, and everything started from one inherited it.
+;
+; The host is elevated too but knows how to hand a token back, so it does the
+; launching. What a terminal IS lives in devnext's programs.json; neither this
+; script nor gluc names a program.
+GlucLaunch(intent, dir)
 {
-    n := 0
-    while (n < StrLen(dir) && SubStr(dir, StrLen(dir) - n, 1) = "\")
-        n++
-    extra := ""
-    Loop n
-        extra .= "\"
-    return '"' dir extra '"'
-}
-
-XButton1::
-{
-    Send("#-")
+    body := '{"intent":"' intent '","path":"' GlucJsonEscape(dir) '"}'
+    reply := GlucSend("launch", body)
+    if (GlucLastError != "")
+        TrayTip("gluc", "could not reach the host: " GlucLastError)
+    else if (SubStr(reply, 1, 1) = "!")
+        TrayTip("gluc", SubStr(reply, 2))
 }
 
 XButton2::#=
@@ -41,9 +36,9 @@ XButton2::#=
 {
     dir := ExplorerPath()
     if (dir != "")
-        Run WtPath() ' -d ' QuoteDir(dir)
+        GlucLaunch("terminal", dir)
     else
-        Run WtPath()   ; This PC, Control Panel, search results
+        GlucLaunch("terminal", "")   ; This PC, Control Panel, search results
 }
 
 ; ---- Ctrl+V in Explorer: write a clipboard image out as a file -------
@@ -100,14 +95,14 @@ ExplorerPath()
 {
     dir := GlucFocusPath()
     if (dir != "")
-        Run WtPath() ' -d ' QuoteDir(dir)
+        GlucLaunch("terminal", dir)
     else
-        Run WtPath()
+        GlucLaunch("terminal", "")
 }
 #HotIf
 
 ; ---- Win+T anywhere else ---------------------------------------------
-#t::Run WtPath()
+#t::GlucLaunch("terminal", "")
 
 #g::GlucSend("recent")
 

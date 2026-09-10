@@ -139,6 +139,25 @@ if (Test-Path $winget) {
     Write-Warning 'winget not found - install Docker Sandboxes by hand, see sandbox/RUNBOOK.md'
 }
 
+# What a terminal is.
+#
+# gluc names intents and never programs, and answers `edit` and `open` by
+# asking the registry. "A terminal, here" has nothing to ask: Windows
+# Terminal's entry is a shell extension rather than a registry command, and
+# what IS registered for a directory is cmd and Windows PowerShell 5.1 in a
+# console host - not what anyone here means by a terminal.
+#
+# So devnext says. Same layer as the file associations below and for the same
+# reason: which program serves an intent is this layer's opinion, and gluc
+# works without it.
+#
+# %V is the path, spelled the way the shell spells it in a directory verb.
+$programs = Join-Path $env:LOCALAPPDATA 'gluc\programs.json'
+New-Item -ItemType Directory -Force -Path (Split-Path $programs -Parent) | Out-Null
+@{ terminal = '"%LOCALAPPDATA%\\Microsoft\\WindowsApps\\wt.exe" -d "%V"' } |
+    ConvertTo-Json | Set-Content -Path $programs -Encoding UTF8
+Write-Output "wrote $programs"
+
 # The software first, then the choices about what it hands files to. devnext
 # depends on gluc and not the other way round: these associations point at
 # ProgIds gluc's switcher asks for by verb, and MarkText exists to give `open`
