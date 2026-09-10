@@ -10,6 +10,24 @@
 
 WtPath() => EnvGet("LOCALAPPDATA") "\Microsoft\WindowsApps\wt.exe"
 
+; A directory as a quoted command-line argument.
+;
+; Trailing backslashes have to be doubled. Windows parses \" as an escaped
+; quote, so -d "S:\" arrives as S:" and the terminal refuses to start with
+;     Could not access starting directory "S:"
+; A drive root is the ordinary way to hit it - S:\ is a perfectly good folder
+; to have focused, and it is the only kind of path that always ends in one.
+QuoteDir(dir)
+{
+    n := 0
+    while (n < StrLen(dir) && SubStr(dir, StrLen(dir) - n, 1) = "\")
+        n++
+    extra := ""
+    Loop n
+        extra .= "\"
+    return '"' dir extra '"'
+}
+
 XButton1::
 {
     Send("#-")
@@ -23,7 +41,7 @@ XButton2::#=
 {
     dir := ExplorerPath()
     if (dir != "")
-        Run WtPath() ' -d "' dir '"'
+        Run WtPath() ' -d ' QuoteDir(dir)
     else
         Run WtPath()   ; This PC, Control Panel, search results
 }
@@ -82,7 +100,7 @@ ExplorerPath()
 {
     dir := GlucFocusPath()
     if (dir != "")
-        Run WtPath() ' -d "' dir '"'
+        Run WtPath() ' -d ' QuoteDir(dir)
     else
         Run WtPath()
 }
