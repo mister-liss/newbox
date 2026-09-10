@@ -1,0 +1,29 @@
+# yaml-language-server: $schema=https://aka.ms/winget-manifest.singleton.1.12.0.schema.json
+
+PackageIdentifier: Docker.sbx
+PackageVersion: 0.42.1
+PackageLocale: en-US
+Publisher: Docker Inc.
+PublisherUrl: https://www.docker.com/
+PublisherSupportUrl: https://www.docker.com/support/
+PackageName: Docker Sandboxes
+PackageUrl: https://docs.docker.com/ai/sandboxes/
+License: Proprietary
+Copyright: Copyright (c) Docker Inc.
+ShortDescription: Docker Sandboxes gives agents safe, isolated environments to work in.
+ReleaseNotesUrl: https://github.com/docker/sbx-releases/releases/tag/v0.42.1
+InstallerType: wix
+Scope: machine
+UpgradeBehavior: install
+ProductCode: '{B3A1F716-144E-4BCA-8FC1-2AA6EB1DEA79}'
+AppsAndFeaturesEntries:
+- ProductCode: '{B3A1F716-144E-4BCA-8FC1-2AA6EB1DEA79}'
+  UpgradeCode: '{DA546BF6-4342-4335-8A93-DA620CEBA3F4}'
+InstallationMetadata:
+  DefaultInstallLocation: '%LocalAppData%\DockerSandboxes'
+Installers:
+- Architecture: x64
+  InstallerUrl: https://github.com/docker/sbx-releases/releases/download/v0.42.1/DockerSandboxes.msi
+  InstallerSha256: 7889FB867090AB81EBBCC950D734E76976C2E7B52AB4CA359CB205B0C51E25D3
+ManifestType: singleton
+ManifestVersion: 1.12.0

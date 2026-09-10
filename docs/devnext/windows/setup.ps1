@@ -67,14 +67,15 @@ function Get-Payload($name, $dest, $area = 'windows') {
 # this layer is for.
 # A MINIMUM rather than a pin, and rather than whatever is newest.
 #
-# 0.39.0 is where `sbx secret set-custom` grew --command and --refresh, so a
-# credential can name how it is minted instead of being handed a value that was
-# already dying. Everything the sandbox does with credentials is built on that,
-# so a 0.38 box is not a slightly older box - it is one where the design does
-# not hold.
+# 0.42.1 is the current supported baseline. The credential proxy is part of the
+# sandbox runtime rather than an optional tool, so keeping its baseline current
+# is a compatibility decision rather than an unrelated upgrade.
 #
 # Below it, upgrade. At or above it, leave alone: dragging a working sandbox
 # forward on every install is not this script's decision to make.
+# The public winget catalog can lag Docker's releases. The payload therefore
+# carries Docker's release as a hash-pinned local manifest. Winget still owns
+# installation and upgrade; this only supplies it with current package metadata.
 # Where its task definitions come from.
 #
 # Not from here. A definition says which machine reaches which service and how
@@ -96,7 +97,7 @@ if (Test-Path $SandboxKits) {
     Write-Output "  git clone https://github.com/stlis_microsoft/sandbox-kits.git $SandboxKits"
 }
 
-$SbxLeast = [version]'0.39.0'
+$SbxLeast = [version]'0.42.1'
 
 $winget = (Get-Command winget -EA SilentlyContinue).Source
 if (-not $winget) { $winget = "$env:LOCALAPPDATA\Microsoft\WindowsApps\winget.exe" }
@@ -116,7 +117,23 @@ if (Test-Path $winget) {
     } else {
         $what = if ($have) { "upgrading Docker.sbx $have -> at least $SbxLeast" } else { 'installing Docker.sbx' }
         Write-Output $what
-        & $winget install --id Docker.sbx --exact --silent --accept-package-agreements --accept-source-agreements --disable-interactivity
+
+        $manifest = Join-Path $env:TEMP 'Docker.sbx.yaml'
+        try {
+            Get-Payload 'Docker.sbx.yaml' $manifest
+            & $winget settings --enable LocalManifestFiles
+            if ($LASTEXITCODE) { throw "winget could not enable local manifests (exit $LASTEXITCODE)" }
+
+            & $winget install --manifest $manifest --silent --accept-package-agreements --accept-source-agreements --disable-interactivity
+            if ($LASTEXITCODE) { throw "winget could not install Docker.sbx (exit $LASTEXITCODE)" }
+        } finally {
+            Remove-Item $manifest -Force -EA SilentlyContinue
+        }
+
+        $said = & (Join-Path $env:LOCALAPPDATA 'DockerSandboxes\bin\sbx.exe') version 2>&1
+        if ($said -notmatch '(\d+\.\d+\.\d+)' -or [version]$Matches[1] -lt $SbxLeast) {
+            throw "Docker.sbx installation completed but sbx does not report at least $SbxLeast"
+        }
     }
 } else {
     Write-Warning 'winget not found - install Docker Sandboxes by hand, see sandbox/RUNBOOK.md'
