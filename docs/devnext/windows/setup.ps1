@@ -67,9 +67,11 @@ function Get-Payload($name, $dest, $area = 'windows') {
 # this layer is for.
 # A MINIMUM rather than a pin, and rather than whatever is newest.
 #
-# 0.42.1 is the current supported baseline. The credential proxy is part of the
-# sandbox runtime rather than an optional tool, so keeping its baseline current
-# is a compatibility decision rather than an unrelated upgrade.
+# The version itself is in constants.psd1 and substituted in at pack time -
+# naming it here as well would be the same duplication one comment further out.
+# The credential proxy is part of the sandbox runtime rather than an optional
+# tool, so keeping its baseline current is a compatibility decision rather than
+# an unrelated upgrade.
 #
 # Below it, upgrade. At or above it, leave alone: dragging a working sandbox
 # forward on every install is not this script's decision to make.
@@ -345,6 +347,12 @@ Set-Verb $ProgId 'edit' ('"' + $gvim + '" %2 "%1"')
 # .ps1 escaped it only because it happened to carry a UserChoice entry - which
 # cannot be written programmatically, by design, since Windows hashes it.
 #
+# That escape is not free, and it took until 2026-09-10 to notice what it cost.
+# .ps1's UserChoice names `Applications\gvim.exe`, whose command is `"%1"` with
+# no `%2` - so it dodged Notepad and lost the position slot on the way. Enter on
+# a .ps1 at line 42 opens it at line 1. See the UserChoice check below, which is
+# what found it.
+#
 # Claiming it under HKCU overrides the machine one for this user and fixes
 # every text-perceived type at once, including Explorer's right-click Edit.
 Set-Verb 'SystemFileAssociations\text' 'edit' ('"' + $gvim + '" %2 "%1"')
@@ -361,6 +369,39 @@ if (Test-Path $marktext) {
 } else {
     Set-Verb $MarkdownProgId 'open' ('"' + $gvim + '" %2 "%1"')
     Write-Output 'marktext not installed - markdown opens in gvim'
+}
+
+# And say so when none of the above is what actually runs.
+#
+# UserChoice outranks the class default, so an extension carrying one resolves
+# through THAT ProgId and everything written above is ignored - both verbs, not
+# just the one that was chosen. Measured: .md carried a UserChoice of gluc.gvim,
+# so Shift+Enter in the switcher opened markdown in gvim while
+# `gluc.markdown\shell\open` pointed at MarkText and had done all along.
+#
+# It is almost certainly self-inflicted. Opener.OpenWith() falls back to the
+# shell's "Open with" dialog when a verb has no answer, and that dialog can set
+# a default - which the daemon treats as a feature, on the grounds that it
+# teaches the machine rather than only this one launch. What it also does is
+# outrank the ProgId permanently, for the other verb too.
+#
+# Reported and not repaired, deliberately. UserChoice is hashed and its key is
+# ACL'd against deletion precisely so that a program cannot reassign defaults
+# behind the person using the machine, and devnext forcing past that would be
+# the exact behaviour the protection exists to stop. It is one click to undo
+# and nobody can find it without being told, so this tells them.
+foreach ($ext in $MarkdownExtensions + $Extensions) {
+    $choice = Get-Item "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\FileExts\$ext\UserChoice" -EA SilentlyContinue
+    if (-not $choice) { continue }
+
+    $chosen = $choice.GetValue('ProgId')
+    $wanted = if ($MarkdownExtensions -contains $ext) { $MarkdownProgId } else { $ProgId }
+    if ($chosen -eq $wanted) { continue }
+
+    Write-Warning ("$ext is set to open with '$chosen', which overrides the '$wanted' " +
+                   'registered here - both verbs, so Enter and Shift+Enter in the switcher ' +
+                   'will both use it. Windows will not let this be changed programmatically: ' +
+                   "right-click a $ext file, Open with, Choose another app, and tick Always.")
 }
 
 foreach ($pair in @{ 'gvim.exe' = 'gvim'; 'vim.exe' = 'vim' }.GetEnumerator()) {
