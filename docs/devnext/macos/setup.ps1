@@ -97,7 +97,20 @@ if ($brew) {
     $have = $null
     $sbx = (Get-Command sbx -EA SilentlyContinue).Source
     if ($sbx) {
-        $said = & $sbx version 2>&1
+    # Out-String, and it is load-bearing rather than tidy.
+    #
+    # `& sbx version 2>&1` yields MULTIPLE objects, so $said is an array - and
+    # -match against an array FILTERS it, returning the lines that matched. It
+    # is truthy, so the `if` looks like it worked. What it does not do is set
+    # $Matches, which stays whatever it held before.
+    #
+    # Before this, that was 'Regular', left there by newbox's font loop and
+    # inherited into this script's scope, so the next line read
+    #   [version]'Regular'
+    #   Cannot convert value "Regular" to type "System.Version"
+    # which names a font weight in the middle of installing a sandbox runtime
+    # and points at nothing. Joining to one string makes -match a test again.
+        $said = (& $sbx version 2>&1 | Out-String)
         if ($said -match '(\d+\.\d+\.\d+)') { $have = [version]$Matches[1] }
     }
 
@@ -120,9 +133,12 @@ if ($brew) {
 
         # Re-ask, the way the Windows setup does: an installer that exits zero
         # has said the package landed, not that the thing on PATH is current.
+        # Read once, into a variable. See the note above on why a condition
+        # that leans on $Matches is not safe here.
         $sbx = (Get-Command sbx -EA SilentlyContinue).Source
-        $said = if ($sbx) { & $sbx version 2>&1 } else { '' }
-        if ($said -notmatch '(\d+\.\d+\.\d+)' -or [version]$Matches[1] -lt $SbxLeast) {
+        $said = if ($sbx) { (& $sbx version 2>&1 | Out-String) } else { '' }
+        $now = if ($said -match '(\d+\.\d+\.\d+)') { [version]$Matches[1] } else { $null }
+        if (-not $now -or $now -lt $SbxLeast) {
             throw "sbx installation completed but sbx does not report at least $SbxLeast"
         }
         Write-Output "installed sbx $($Matches[1])"
