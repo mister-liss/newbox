@@ -49,18 +49,26 @@ XButton1::
 
 XButton2::#=
 
-; ---- Win+T in Explorer: a terminal on that folder --------------------
-#HotIf WinActive("ahk_class CabinetWClass")
-#t::
-{
-    dir := ExplorerPath()
-    if (dir != "")
-        GlucLaunch("terminal", dir)
-    else
-        GlucLaunch("terminal", "")   ; This PC, Control Panel, search results
-}
+; ---- Win+T in Explorer -----------------------------------------------
+; GONE, and that is the fix rather than a regression.
+;
+; This branch read the focused Explorer window over COM and passed the
+; folder to the host. Two things wrong with that. It is the hotkey script
+; doing work instead of naming an intent, which is the one thing this file
+; is not for. And this script is elevated, while reading another process's
+; Explorer window over COM is refused across an integrity boundary - which
+; is the documented reason gluc-explorer-forwarder.ahk runs unelevated.
+;
+; The forwarder already reports exactly this, keyed by window handle, so
+; focus-project resolves an Explorer window like any other. Win+T below
+; needs no special case: it asks gluc, and gluc was already told.
 
 ; ---- Ctrl+V in Explorer: write a clipboard image out as a file -------
+;
+; Still guarded to Explorer. Deleting the Win+T branch above took this
+; directive with it for a moment, which would have made Ctrl+V a global
+; hotkey - every paste in every application routed through here.
+#HotIf WinActive("ahk_class CabinetWClass")
 ^v::
 {
     static CF_DIB := 8, CF_HDROP := 15
@@ -70,33 +78,19 @@ XButton2::#=
         Send "^v"
         return
     }
-    dir := ExplorerPath()
-    if (dir = "")
-    {
+    ; An intent, not a command. The host knows where focus is and owns the
+    ; saver; this only knows that the clipboard holds an image and that a
+    ; keystroke is waiting on the answer.
+    ;
+    ; Falls through to a real Ctrl+V when the host cannot place the window,
+    ; which is the same behaviour as before and matters: swallowing the key
+    ; would make a paste silently do nothing.
+    reply := GlucSend("paste", "{}")
+    if (GlucLastError != "" || SubStr(reply, 1, 1) = "!")
         Send "^v"
-        return
-    }
-    saver := EnvGet("LOCALAPPDATA") "\gluc\paste-image.ps1"
-    if (!FileExist(saver))
-    {
-        Send "^v"
-        return
-    }
-    RunWait 'powershell.exe -NoProfile -STA -ExecutionPolicy Bypass -File "' saver '" -Directory "' dir '"', , "Hide"
 }
 #HotIf
 
-ExplorerPath()
-{
-    hwnd := WinGetID("A")
-    for window in ComObject("Shell.Application").Windows
-    {
-        if (window.HWND != hwnd)
-            continue
-        return StrReplace(window.Document.Folder.Self.Path, "\", "/")
-    }
-    return ""
-}
 
 ; ---- Win+T in Windows Terminal: another terminal, same cwd -----------
 ; The focused shell says where it is, so this asks gluc rather than working it
