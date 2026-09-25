@@ -3,13 +3,15 @@ param([string]$Source = 'https://newbox.stevenmliss.com')
 
 $ErrorActionPreference = 'Stop'
 $TaskName = 'gluc'
+$HotkeyTaskName = 'gluc-hotkeys'
 
 $elevated = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole(
     [Security.Principal.WindowsBuiltInRole]::Administrator)
 if (-not $elevated) {
     Write-Host 'This must run elevated.' -ForegroundColor Red
-    Write-Host 'It registers a scheduled task at highest privileges, which is what lets'
-    Write-Host 'AutoHotkey send input while an elevated window has focus.'
+    Write-Host 'It registers scheduled tasks, one of them at highest privileges, which'
+    Write-Host 'is what lets AutoHotkey still get the key while an elevated window has'
+    Write-Host 'focus. The host itself runs as you.'
     Write-Host ''
     Write-Host 'Start PowerShell as administrator, then run:'
     Write-Host ('  irm ' + $Source + '/gluc/windows/setup.ps1 | iex')
@@ -45,7 +47,11 @@ foreach ($id in 'AutoHotkey.AutoHotkey', 'Microsoft.DotNet.DesktopRuntime.10') {
     }
 }
 
-Stop-ScheduledTask -TaskName $TaskName -EA SilentlyContinue
+# Both, or the hotkey script keeps running and holds Daily.ahk open while this
+# tries to overwrite it.
+foreach ($task in $TaskName, $HotkeyTaskName) {
+    Stop-ScheduledTask -TaskName $task -EA SilentlyContinue
+}
 Get-Process Gluc.Host, Gluc.FileForwarder, Gluc.Picker, AutoHotkey64 -EA SilentlyContinue | Stop-Process -Force
 Start-Sleep -Milliseconds 500
 
@@ -206,19 +212,74 @@ $picker_exe = Join-Path $dir 'Gluc.Picker.exe'
 if (-not (Test-Path $picker_exe)) { throw 'gluc-host.zip did not contain Gluc.Picker.exe' }
 Write-Output "wrote $host_exe"
 
-# The task starts the host, and the host starts AutoHotkey. A supervisor has to
-# outlive what it supervises, so it cannot be the thing the task launches.
+# TWO TASKS, and only one of them is elevated.
+#
+# It used to be one at highest privileges running the host, which then started
+# the hotkey script as a child so the script inherited elevation. Being started
+# by something already elevated is the only way an ordinary process becomes an
+# administrator one - so the host sat at administrator for a reason that was
+# never about the host.
+#
+# The SCRIPT has to be elevated. AutoHotkey uses a low-level keyboard hook, and
+# a hook owned by an ordinary process does not see input while an elevated
+# window has focus - so Win+T would quietly stop working over an administrator
+# terminal or Task Manager.
+#
+# The HOST does not. It writes HKCU, reads a database in its own directory and
+# listens on loopback. Everything it starts - terminals, editors, the forwarders
+# - had to have an ordinary token handed back one call at a time precisely
+# because it was elevated and they must not be. Run it as the person using it
+# and that apparatus stops being load-bearing.
+#
+# One more thing this buys, which cost an afternoon once: reading another
+# process's Explorer window over COM is refused across an integrity boundary, so
+# an elevated caller cannot do it at all. Three forwarders already ran
+# unelevated for exactly that reason.
 Unregister-ScheduledTask -TaskName 'RunAutohotkeyDailyScript' -Confirm:$false -EA SilentlyContinue
 
-$me        = "$env:USERDOMAIN\$env:USERNAME"
+$me = "$env:USERDOMAIN\$env:USERNAME"
+
+# The host, as the user.
 $action    = New-ScheduledTaskAction -Execute $host_exe
 $trigger   = New-ScheduledTaskTrigger -AtLogOn -User $me
-$principal = New-ScheduledTaskPrincipal -UserId $me -LogonType Interactive -RunLevel Highest
+$principal = New-ScheduledTaskPrincipal -UserId $me -LogonType Interactive -RunLevel Limited
 $settings  = New-ScheduledTaskSettingsSet -MultipleInstances IgnoreNew -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries
 
 Register-ScheduledTask -TaskName $TaskName -Action $action -Trigger $trigger -Principal $principal -Settings $settings -Force | Out-Null
-Write-Output "registered scheduled task: $TaskName"
+Write-Output "registered scheduled task: $TaskName (as you, not elevated)"
 
-Stop-ScheduledTask -TaskName $TaskName -EA SilentlyContinue
-Start-ScheduledTask -TaskName $TaskName
-Write-Output "started $TaskName"
+# The hotkeys, elevated, and nothing else is.
+#
+# Found the same way the host used to find it, because it is the same question:
+# the newest AutoHotkey v2 under either Program Files, ordered descending so a
+# v2.1 beside a v2.0 wins.
+$ahk = @('C:\Program Files\AutoHotkey', 'C:\Program Files (x86)\AutoHotkey') |
+    Where-Object { Test-Path $_ } |
+    ForEach-Object { Get-ChildItem $_ -Recurse -Filter 'AutoHotkey*64.exe' -EA SilentlyContinue } |
+    Sort-Object FullName -Descending |
+    Select-Object -First 1 -ExpandProperty FullName
+
+if (-not $ahk) { throw 'AutoHotkey v2 (AutoHotkey*64.exe) not found under Program Files' }
+
+$daily = Join-Path $dir 'Daily.ahk'
+if (-not (Test-Path $daily)) { throw "Daily.ahk is not at $daily" }
+
+# RestartCount, because nothing supervises it any more. The host used to restart
+# it when it died; a task can only restart on FAILURE, which cannot tell a crash
+# from a clean exit - weaker, and the honest cost of the host not being elevated
+# to watch it.
+$hkAction    = New-ScheduledTaskAction -Execute $ahk -Argument ('"' + $daily + '"')
+$hkTrigger   = New-ScheduledTaskTrigger -AtLogOn -User $me
+$hkPrincipal = New-ScheduledTaskPrincipal -UserId $me -LogonType Interactive -RunLevel Highest
+$hkSettings  = New-ScheduledTaskSettingsSet -MultipleInstances IgnoreNew -AllowStartIfOnBatteries `
+                   -DontStopIfGoingOnBatteries -RestartCount 3 -RestartInterval (New-TimeSpan -Minutes 1)
+
+Register-ScheduledTask -TaskName $HotkeyTaskName -Action $hkAction -Trigger $hkTrigger `
+    -Principal $hkPrincipal -Settings $hkSettings -Force | Out-Null
+Write-Output "registered scheduled task: $HotkeyTaskName (elevated, for the keyboard hook)"
+
+foreach ($task in $TaskName, $HotkeyTaskName) {
+    Stop-ScheduledTask -TaskName $task -EA SilentlyContinue
+    Start-ScheduledTask -TaskName $task
+    Write-Output "started $task"
+}
