@@ -227,10 +227,23 @@ GlucFocusField(name)
 ; without giving up the foreground again.
 #p::
 {
-    ; Belt and braces: hand standing to the next process that asks, in case
-    ; inheritance alone is not enough. ASFW_ANY.
+    ; Hand standing over, then ask. Exactly what Win+T does, and for the same
+    ; reason: the host starts it, so it is not a child of this elevated script
+    ; and does not inherit administrator from it.
+    ;
+    ; This was launched directly for years on the recorded grounds that a
+    ; granted foreground expires before a cold .NET process can use it. Two
+    ; things say otherwise. Win+T grants and then survives an HTTP round trip
+    ; AND a process launch. And the picker is 500ms cold, 10-25ms warm, which
+    ; is the same order - measured, not assumed.
     DllCall("AllowSetForegroundWindow", "UInt", 0xFFFFFFFF)
-    Run EnvGet("LOCALAPPDATA") "\gluc\Gluc.Picker.exe"
+
+    ; Falls back to launching it here when the host is not answering, because
+    ; a colour picker that needs a daemon to exist is worse than one that is
+    ; briefly elevated. Same shape as Win+E falling back to plain Explorer.
+    reply := GlucSend("picker", "{}")
+    if (GlucLastError != "" || SubStr(reply, 1, 1) = "!")
+        Run EnvGet("LOCALAPPDATA") "\gluc\Gluc.Picker.exe"
 }
 
 #c::PlaceWin()
